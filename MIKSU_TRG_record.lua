@@ -113,8 +113,8 @@ local CLEAN_DISTANCE_THRESHOLD = 0.07
 local CLEAN_VERTICAL_THRESHOLD = 0.10
 
 --// Smooth playback / merge anti-blink
-local PLAYBACK_STEP_DISTANCE = 0.85
-local PLAYBACK_MIN_STEP_DISTANCE = 0.04
+local PLAYBACK_STEP_DISTANCE = 0.55
+local PLAYBACK_MIN_STEP_DISTANCE = 0.025
 
 --// FIX PLAY AFTER FINISH:
 --// Kalau avatar masih berdiri di posisi FINISH lalu PLAY lagi, langsung balik ke START.
@@ -1445,7 +1445,7 @@ end
 
 function smoothStep(a)
     a = math.clamp(a, 0, 1)
-    return a * a * (3 - 2 * a)
+    return a * a * a * (a * (a * 6 - 15) + 10)
 end
 
 function lerpAngle(a, b, t)
@@ -4070,15 +4070,13 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
     local ra = tonumber(a.rotation) or 0
     local rb = tonumber(b.rotation) or ra
 
-    local eased = math.clamp(alpha or 0, 0, 1)
+    local eased = smoothStep(math.clamp(alpha or 0, 0, 1))
     local targetPos = pa:Lerp(pb, eased)
     local yaw = lerpAngle(ra, rb, eased)
 
     local st = getFrameStateText(b)
 
     --// IDLE HOLD (anti getar):
-    --// Segmen idle / nyaris diam tidak boleh di-Lerp + di-set velocity tiap heartbeat,
-    --// karena bikin avatar bergetar di tempat. Cukup kunci CFrame ke posisi awal.
     if isIdlePlaybackSegment(a, b) then
         pcall(function()
             hum.AutoRotate = false
@@ -4092,9 +4090,30 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
         return
     end
 
+    --// SMOOTH POSITION BLEND:
+    --// Daripada hard-set CFrame ke targetPos tiap frame (kaku/snap),
+    --// blend dari posisi avatar saat ini ke targetPos. Ini membuat gerakan halus.
+    local nowPos = hrp.Position
+    local nowYaw = select(2, hrp.CFrame:ToOrientation())
+    local posBlend = 0.45
+
+    --// Untuk Running, blend lebih agresif supaya ikut record tapi tidak snap
+    if not isJumpStateText(st) and st ~= "Freefall" and st ~= "FallingDown" and st ~= "Climbing" and st ~= "Swimming" then
+        posBlend = 0.55
+        --// Kalau gap besar, jangan full snap — gradual approach
+        local gap = (targetPos - nowPos).Magnitude
+        if gap > 3 then
+            posBlend = math.clamp(3 / gap, 0.15, 0.45)
+        end
+    elseif isJumpStateText(st) or st == "Freefall" or st == "FallingDown" then
+        --// Jump/freefall: tetap pakai targetPos langsung supaya trajectory akurat
+        posBlend = 1.0
+    end
+
+    local smoothPos = nowPos:Lerp(targetPos, posBlend)
+    local smoothYaw = lerpAngle(nowYaw, yaw, 0.5)
+
     --// PLAYBACK ANTI BLING VISUAL GUARD:
-    --// Kalau masih ada frame Running yang targetPos-nya jauh mendadak, jangan langsung CFrame blink.
-    --// Guard ini hanya untuk Running; Jump/Freefall tetap mengikuti momentum asli.
     if RUN_PLAYBACK_VISUAL_GUARD
         and not isJumpStateText(st)
         and st ~= "Freefall"
@@ -4103,13 +4122,11 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
         and st ~= "Swimming"
         and b.seam ~= true
         and a.cutNext ~= true
-        and hrp
     then
-        local nowPos = hrp.Position
-        local visualGap = (targetPos - nowPos).Magnitude
+        local visualGap = (smoothPos - nowPos).Magnitude
         if visualGap > (RUN_PLAYBACK_BIG_GAP_DISTANCE or 6.2) then
             local step = math.max(RUN_PLAYBACK_MAX_VISUAL_STEP or 4.25, 1)
-            targetPos = nowPos:Lerp(targetPos, math.clamp(step / visualGap, 0.05, 1))
+            smoothPos = nowPos:Lerp(smoothPos, math.clamp(step / visualGap, 0.05, 1))
         end
     end
 
@@ -4126,13 +4143,6 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
     local spdMul = math.clamp(tonumber(speedMultiplier) or 1, 0.05, 25)
     mapVel = mapVel * spdMul
 
-    --// FIX FREEFALL JITTER:
-    --// Velocity rekaman terpengaruh workspace.Gravity tiap map (beda map = beda fall speed).
-    --// Kalau dipakai langsung saat playback, gravity lokal map saat play akan menambah/mengurangi
-    --// Y velocity tiap frame, sementara CFrame juga di-teleport tiap frame -> dua sumber gerak
-    --// saling adu = geter saat terjun dari ketinggian.
-    --// Solusi: derive velocity dari delta posisi murni (pb-pa)/dt, sehingga selaras dengan CFrame
-    --// teleport, terlepas dari gravity map manapun.
     local posDeltaVel = (pb - pa) / math.max(timeDiff, 0.001)
     posDeltaVel = posDeltaVel * spdMul
 
@@ -4160,16 +4170,11 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
     local isSwimming = st == "Swimming"
 
     pcall(function()
-        --// PATCH LOCK PLAY:
-        --// TRG playback tetap lock ke yaw/rotation record.
         hum.AutoRotate = false
-        hrp.CFrame = CFrame.new(targetPos) * CFrame.Angles(0, yaw, 0)
+        hrp.CFrame = CFrame.new(smoothPos) * CFrame.Angles(0, smoothYaw, 0)
 
         local hVel = Vector3.new(mapVel.X, 0, mapVel.Z)
 
-        --// FIX LOOP SPEED:
-        --// Jangan pakai cap 240 terus-menerus, karena pada mode loop beberapa UI bisa
-        --// menumpuk multiplier dan membuat speed lebih kenceng dari play biasa.
         local baseFrameSpeed = math.max(
             getFrameHorizontalVelocity(a),
             getFrameHorizontalVelocity(b),
@@ -4185,10 +4190,6 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
         local yVel = math.clamp(mapVel.Y, -220, 170)
 
         if isJumping then
-            --// FIX FREEFALL JITTER (terjun dari atas):
-            --// Pakai velocity dari delta posisi (sinkron dgn CFrame teleport), bukan velocity
-            --// rekaman yang ter-skala gravity map. Horizontal pakai posDeltaVel.X/Z biar
-            --// momentum saat terjun konsisten antar map.
             local fhX = posDeltaVel.X
             local fhZ = posDeltaVel.Z
             local fhMag = math.sqrt(fhX * fhX + fhZ * fhZ)
@@ -4220,7 +4221,12 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
             hum:ChangeState(Enum.HumanoidStateType.Swimming)
 
         else
-            -- Running: tetap pakai city asli JSON agar speed tiap map tidak ngaco.
+            -- Running: velocity mengikuti city asli + sedikit blend dari posisi saat ini
+            local blendVel = (smoothPos - nowPos) / math.max(timeDiff, 0.001)
+            local blendH = Vector3.new(blendVel.X, 0, blendVel.Z)
+            if blendH.Magnitude > 0.1 then
+                hVel = hVel:Lerp(blendH, 0.3)
+            end
             hrp.AssemblyLinearVelocity = Vector3.new(hVel.X, math.clamp(yVel, -80, 80), hVel.Z)
             hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
@@ -5663,7 +5669,7 @@ REF_JUMP_MIN_MOTION_SPEED_KEEP = 8
 --// jarak, timing, dan velocity tetap wajar sesuai speed map/coil.
 --// =========================================================
 RUN_ANTI_BLING_ENABLED = true
-RUN_ANTI_BLING_MAX_STEP = 2.65            -- jarak antar frame Running yang aman sebelum ditambah bridge
+RUN_ANTI_BLING_MAX_STEP = 1.45             -- jarak antar frame Running yang aman sebelum ditambah bridge
 RUN_ANTI_BLING_MAX_BRIDGE_DISTANCE = 18   -- di atas ini dianggap teleport/seam, jangan dipaksa bridge
 RUN_ANTI_BLING_INSERT_MAX = 10            -- batas bridge per gap agar file tidak membesar berat
 RUN_ANTI_BLING_MIN_DT = 0.0085            -- Running jangan terlalu padat waktunya
