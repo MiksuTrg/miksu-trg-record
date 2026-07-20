@@ -5,9 +5,9 @@
 --// =========================================================
 
 --// =========================================================
---// ONIUM Recorder / BittWise Recorder
+--// MIKSU TRG Recorder
 --// Delta + Xeno Mobile Friendly
---// FULL BITWISE SUPPORT + RAW MOMENTUM + ANTI KEDUT + SAFE ROLLBACK + CP MARKER
+--// FULL TRG SUPPORT + RAW MOMENTUM + ANTI KEDUT + SAFE ROLLBACK + CP MARKER
 --// PATCH: AUTO MAP CLEAN + ANTI KEDUT + NORMAL SPEED LOCK + MERGE ANTI SPEED SPIKE
 --// =========================================================
 
@@ -19,8 +19,8 @@ pcall(function()
     end
 end)
 
-if ENV.__ONIUM_RECORDER_CLEANUP then
-    pcall(ENV.__ONIUM_RECORDER_CLEANUP)
+if ENV.__MIKSU_RECORDER_CLEANUP then
+    pcall(ENV.__MIKSU_RECORDER_CLEANUP)
 end
 
 --// Services
@@ -34,8 +34,8 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --// Config
-local FOLDER_NAME = "ONIUM_RECORDER"
-local CUSTOM_LOGO_ASSET = "rbxassetid://130280202431400"
+local FOLDER_NAME = "MIKSU_TRG_RECORD"
+local CUSTOM_LOGO_ASSET = ""
 local USE_NATURAL_MAP_JUMP = true
 local USE_MAP_WALKSPEED_ON_PLAYBACK = true
 local USE_MAP_HIPHEIGHT_ON_PLAYBACK = true
@@ -92,13 +92,13 @@ local MOBILE_DELTA_JUMP_Y_TRIGGER = 7.5
 local MOBILE_DELTA_FALL_Y_TRIGGER = -5.5
 local MOBILE_DELTA_VELOCITY_CONFIRM_FRAMES = 2
 
---// Playback speed mode dibuat sama seperti ONIUM Race:
+--// Playback speed mode dibuat sama seperti MIKSU TRG:
 --// angka speed = stud/s, bukan multiplier x.
 local MIN_PLAYBACK_SPEED = 8
 local MAX_PLAYBACK_SPEED = 500000
 local DEFAULT_PLAYBACK_SPEED = 16
 
---// FORMAT JSON KHUSUS BITWISE
+--// FORMAT JSON KHUSUS TRG
 --// Samakan dengan JSON normal kedua.
 local BITWISE_JSON_WALKSPEED = 45
 local BITWISE_JSON_HIPHEIGHT = 5.331189155578613
@@ -127,7 +127,7 @@ local PLAY_AGAIN_FINISH_TIME_WINDOW = 0.12
 local LOOP_SPEED_SAFE_CAP_MULTIPLIER = 1.12
 
 --// Speed sync limiter:
---// Export JSON akan retime berdasarkan jarak / speed set, supaya saat di-load di ONIUM Race
+--// Export JSON akan retime berdasarkan jarak / speed set, supaya saat di-load di MIKSU TRG
 --// speedometer tidak tembus jauh di atas angka yang kamu set.
 local SPEED_TIMING_MIN_DT = 0.006
 local SPEED_TIMING_MAX_DT = 0.18
@@ -198,11 +198,11 @@ local rollbackToken = 0
 local isPlaying = false
 local playToken = 0
 
---// Speed sync seperti ONIUM Race
+--// Speed sync seperti MIKSU TRG
 --// currentPlaybackSpeed = speed yang kamu set dari speedometer / manual.
 --// syncBaseSpeed = speed dasar yang akan ditulis ke JSON sebagai ws.
---// ONIUM Race menghitung: speedMultiplier = currentPlaybackSpeed / recordedBaseSpeed.
---// Jadi kalau di ONIUM Race kamu Set Speed dari speedometer dengan angka yang sama,
+--// MIKSU TRG menghitung: speedMultiplier = currentPlaybackSpeed / recordedBaseSpeed.
+--// Jadi kalau di MIKSU TRG kamu Set Speed dari speedometer dengan angka yang sama,
 --// replay akan jalan normal/sinkron.
 local currentPlaybackSpeed = DEFAULT_PLAYBACK_SPEED
 local syncBaseSpeed = DEFAULT_PLAYBACK_SPEED
@@ -304,12 +304,12 @@ function cleanup()
             seamDotFolder = nil
         end
 
-        local old = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
+        local old = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
         if old then
             old:Destroy()
         end
 
-        local oldCp = workspace:FindFirstChild("ONIUM_CP_MARKERS")
+        local oldCp = workspace:FindFirstChild("MIKSU_CP_MARKERS")
         if oldCp then
             oldCp:Destroy()
         end
@@ -322,7 +322,7 @@ function cleanup()
     end)
 end
 
-ENV.__ONIUM_RECORDER_CLEANUP = cleanup
+ENV.__MIKSU_RECORDER_CLEANUP = cleanup
 
 function roundNumber(n, dec)
     dec = dec or 3
@@ -970,11 +970,11 @@ function formatTime(t)
 end
 
 function notify(title, text, sec)
-    title = tostring(title or "ONIUM")
+    title = tostring(title or "MIKSU")
     text = tostring(text or "")
     sec = sec or 2
 
-    warn("[ONIUM Recorder] " .. title .. " - " .. text)
+    warn("[MIKSU TRG Recorder] " .. title .. " - " .. text)
 
     if not ToastLabel then
         return
@@ -1005,7 +1005,7 @@ function clearMergeDots()
             seamDotFolder = nil
         end
 
-        local old = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
+        local old = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
         if old then
             old:Destroy()
         end
@@ -1017,13 +1017,13 @@ function getMergeDotFolder()
         return seamDotFolder
     end
 
-    local old = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
+    local old = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
     if old then
         old:Destroy()
     end
 
     seamDotFolder = Instance.new("Folder")
-    seamDotFolder.Name = "ONIUM_MERGE_DOTS"
+    seamDotFolder.Name = "MIKSU_MERGE_DOTS"
     seamDotFolder.Parent = workspace
 
     return seamDotFolder
@@ -1053,7 +1053,7 @@ end
 
 function makeBillboardLabel(parent, text, color)
     local bill = Instance.new("BillboardGui")
-    bill.Name = "ONIUM_Label"
+    bill.Name = "MIKSU_Label"
     bill.Size = UDim2.fromOffset(105, 26)
     bill.StudsOffset = Vector3.new(0, 1.7, 0)
     bill.AlwaysOnTop = false
@@ -1092,7 +1092,7 @@ end
 
 function createMarkerPart(folder, name, pos, color, size, shape)
     local p = Instance.new("Part")
-    p.Name = tostring(name or "ONIUM_MARK")
+    p.Name = tostring(name or "MIKSU_MARK")
     p.Anchored = true
     p.CanCollide = false
     p.CanTouch = false
@@ -1171,13 +1171,13 @@ function createMergeDotPath(joinNumber, cpName, previousPos, joinPos)
     if firstDot and lastDot and firstDot ~= lastDot then
         pcall(function()
             local a0 = Instance.new("Attachment")
-            a0.Name = "ONIUM_BEAM_A"
+            a0.Name = "MIKSU_BEAM_A"
             a0.Parent = firstDot
             local a1 = Instance.new("Attachment")
-            a1.Name = "ONIUM_BEAM_B"
+            a1.Name = "MIKSU_BEAM_B"
             a1.Parent = lastDot
             local beam = Instance.new("Beam")
-            beam.Name = "ONIUM_JOIN_BEAM"
+            beam.Name = "MIKSU_JOIN_BEAM"
             beam.Attachment0 = a0
             beam.Attachment1 = a1
             beam.Width0 = 0.12
@@ -1196,7 +1196,7 @@ function clearCheckpointMarkers()
     CP_MARKER_CULLER_TOKEN = CP_MARKER_CULLER_TOKEN + 1
 
     pcall(function()
-        local old = workspace:FindFirstChild("ONIUM_CP_MARKERS")
+        local old = workspace:FindFirstChild("MIKSU_CP_MARKERS")
         if old then
             old:Destroy()
         end
@@ -1204,13 +1204,13 @@ function clearCheckpointMarkers()
 end
 
 function getCheckpointMarkerFolder()
-    local old = workspace:FindFirstChild("ONIUM_CP_MARKERS")
+    local old = workspace:FindFirstChild("MIKSU_CP_MARKERS")
     if old then
         return old
     end
 
     local folder = Instance.new("Folder")
-    folder.Name = "ONIUM_CP_MARKERS"
+    folder.Name = "MIKSU_CP_MARKERS"
     folder.Parent = workspace
     return folder
 end
@@ -1360,7 +1360,7 @@ function refreshCheckpointMarkers()
         end
     end
 
-    startCheckpointMarkerDistanceCuller(workspace:FindFirstChild("ONIUM_CP_MARKERS"))
+    startCheckpointMarkerDistanceCuller(workspace:FindFirstChild("MIKSU_CP_MARKERS"))
 end
 
 function updateCpMarkerToggleButton()
@@ -1429,7 +1429,7 @@ function toggleSingleCheckpointMarker(cp)
 end
 
 function countMergeDots()
-    local folder = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
+    local folder = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
     local count = 0
 
     if folder then
@@ -1621,8 +1621,8 @@ function prepareRawExactFramesForSave(frames)
 end
 
 --// =========================================================
---// BITWISE SUPPORT SPEED DETECTOR
---// BitWise replay memakai walkSpeed frame pertama sebagai base speed.
+--// TRG SUPPORT SPEED DETECTOR
+--// TRG replay memakai walkSpeed frame pertama sebagai base speed.
 --// Kalau Humanoid.WalkSpeed tetap 16 tetapi velocity/city map 50+,
 --// JSON harus menulis base speed dari momentum asli agar manual speed tidak ngaco.
 --// =========================================================
@@ -2017,7 +2017,7 @@ function autoMapCleanSpeedForSave(frames)
     return frames, changed or 0, normal
 end
 
--- Fungsi baru untuk membuat 1 frame dalam format ONIUM Race.
+-- Fungsi baru untuk membuat 1 frame dalam format MIKSU TRG.
 -- Fungsi ini dibuat agar outputnya PERSIS seperti di file contoh Anda.
 function exportFrameForOniumRace(fr)
     fr = fr or {}
@@ -2759,7 +2759,7 @@ end
 --// =========================================================
 
 ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ONIUM Recorder"
+ScreenGui.Name = "MIKSU TRG Recorder"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -2795,12 +2795,12 @@ Header.Parent = MainFrame
 addCorner(Header, 14)
 
 local LogoHolder = Instance.new("Frame")
-LogoHolder.BackgroundColor3 = Color3.fromRGB(36, 36, 52)
+LogoHolder.BackgroundTransparency = 1
 LogoHolder.Size = UDim2.fromOffset(20, 20)
 LogoHolder.Position = UDim2.fromOffset(6, 5)
 LogoHolder.Parent = Header
 addCorner(LogoHolder, 10)
-addStroke(LogoHolder, Color3.fromRGB(110, 110, 160), 0.25)
+-- LogoHolder stroke removed (no logo)
 
 local Logo = Instance.new("ImageLabel")
 Logo.Name = "HeaderLogo"
@@ -2813,7 +2813,7 @@ Logo.Parent = LogoHolder
 
 local Title = Instance.new("TextLabel")
 Title.BackgroundTransparency = 1
-Title.Text = "ONIUM Recorder | BitWise Play"
+Title.Text = "MIKSU TRG Recorder"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
 Title.TextColor3 = Color3.fromRGB(245, 245, 255)
@@ -2924,7 +2924,7 @@ ImportBtn.Size = UDim2.new(0.2, -4, 1, 0)
 local RefreshBtn = makeButton(TopButtons, "Refresh", Color3.fromRGB(55, 95, 105))
 RefreshBtn.Size = UDim2.new(0.2, -4, 1, 0)
 
-local MergeBtn = makeButton(TopButtons, "Merge", Color3.fromRGB(95, 70, 150))
+local MergeBtn = makeButton(TopButtons, "Merge", Color3.fromRGB(55, 95, 130))
 MergeBtn.Size = UDim2.new(0.2, -4, 1, 0)
 
 cpMarkerToggleBtn = makeButton(TopButtons, "CP OFF", Color3.fromRGB(55, 55, 70))
@@ -2977,14 +2977,14 @@ addStroke(ToastLabel, Color3.fromRGB(90, 90, 130), 0.35)
 MiniLogo = Instance.new("ImageButton")
 MiniLogo.Name = "MiniLogo"
 MiniLogo.Visible = false
-MiniLogo.BackgroundColor3 = Color3.fromRGB(26, 26, 38)
+MiniLogo.BackgroundTransparency = 1
 MiniLogo.Image = CUSTOM_LOGO_ASSET
 MiniLogo.ScaleType = Enum.ScaleType.Fit
 MiniLogo.Size = UDim2.fromOffset(38, 38)
 MiniLogo.Position = UDim2.fromOffset(25, 170)
 MiniLogo.Parent = ScreenGui
 addCorner(MiniLogo, 19)
-addStroke(MiniLogo, Color3.fromRGB(135, 135, 190), 0.2)
+-- MiniLogo stroke removed (no logo)
 makeDraggable(MiniLogo, MiniLogo)
 
 RecordOverlay = Instance.new("Frame")
@@ -3901,9 +3901,9 @@ end
 --// =========================================================
 
 --// =========================================================
---// BITWISE STYLE PLAYBACK UNTUK ONIUM
---// Baca JSON ONIUM/BitWise, AUTO speed map, manual speed box.
---// Cara speed sama BitWise: currentTime maju pakai speedMultiplier.
+--// TRG STYLE PLAYBACK
+--// Baca JSON MIKSU TRG, AUTO speed map, manual speed box.
+--// Cara speed sama MIKSU TRG: currentTime maju pakai speedMultiplier.
 --// =========================================================
 
 function getFrameStateText(fr)
@@ -4142,7 +4142,7 @@ function applyFrameBitwiseStyle(a, b, alpha, hum, hrp, speedMultiplier, playback
 
     pcall(function()
         --// PATCH LOCK PLAY:
-        --// BitWise playback tetap lock ke yaw/rotation record.
+        --// TRG playback tetap lock ke yaw/rotation record.
         hum.AutoRotate = false
         hrp.CFrame = CFrame.new(targetPos) * CFrame.Angles(0, yaw, 0)
 
@@ -4382,7 +4382,7 @@ function playFrames(frames, checkpointName)
                 realDt = 0.1
             end
 
-            -- Ini inti metode BitWise: waktu playback dimajukan pakai multiplier speed.
+            -- Ini inti metode MIKSU TRG: waktu playback dimajukan pakai multiplier speed.
             -- Pakai timeMultiplier, bukan velocity langsung, agar mode loop tidak menumpuk speed.
             currentTime = currentTime + (realDt * timeMultiplier)
 
@@ -5516,7 +5516,7 @@ end
 
 
 --// =========================================================
---// PATCH ONIUM: NO IDLE BUT SMOOTH TURN AFTER IDLE
+--// PATCH MIKSU: NO IDLE BUT SMOOTH TURN AFTER IDLE
 --// Idle tetap dibuang, tapi rotasi saat diam tidak hilang kasar.
 --// Contoh fix: hadap barat diam -> langsung hadap timur/utara/selatan -> jalan
 --// hasil save tidak patah/snap, karena yaw disebar ke frame jalan berikutnya.
@@ -5586,7 +5586,7 @@ end
 
 
 --// =========================================================
---// PATCH ONIUM: REFERENCE JUMP SAVE OPTIMIZER V2
+--// PATCH MIKSU: REFERENCE JUMP SAVE OPTIMIZER V2
 --// Target: kalau hasil record seperti checkpoint_1 masih kedut/pelan,
 --// saat SAVE dibuat lebih mirip checkpoint_2: ground gap antar jump dipadatkan,
 --// jalur jump dihaluskan, momentum udara distabilkan, dan timing tap-tap dirapikan.
@@ -5637,7 +5637,7 @@ REF_JUMP_KEEP_ORIGINAL_CITY_DIR = true
 REF_JUMP_MIN_MOTION_SPEED_KEEP = 8
 
 --// =========================================================
---// PATCH ONIUM: RUNNING ANTI BLING / ANTI BLINK
+--// PATCH MIKSU: RUNNING ANTI BLING / ANTI BLINK
 --// Fokus fix: kadang saat PLAY hasil record lari ada blink/bling kecil.
 --// Penyebab umum: frame lari terlalu jauh tapi timing terlalu pendek setelah clean/save.
 --// Patch ini tidak mengubah sistem jump smoothing; hanya menjaga frame Running agar
@@ -7115,11 +7115,11 @@ task.spawn(function()
         end
 
         if count > 0 then
-            notify("ONIUM Recorder", "Auto load " .. tostring(count) .. " JSON", 3)
+            notify("MIKSU TRG Recorder", "Auto load " .. tostring(count) .. " JSON", 3)
         else
-            notify("ONIUM Recorder", "Siap digunakan", 2)
+            notify("MIKSU TRG Recorder", "Siap digunakan", 2)
         end
     else
-        notify("ONIUM Recorder", "Siap. File API tidak lengkap, memory mode aktif.", 4)
+        notify("MIKSU TRG Recorder", "Siap. File API tidak lengkap, memory mode aktif.", 4)
     end
 end)
