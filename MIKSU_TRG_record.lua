@@ -2978,13 +2978,32 @@ MiniLogo = Instance.new("ImageButton")
 MiniLogo.Name = "MiniLogo"
 MiniLogo.Visible = false
 MiniLogo.BackgroundTransparency = 1
-MiniLogo.Image = CUSTOM_LOGO_ASSET
+MiniLogo.Image = ""
 MiniLogo.ScaleType = Enum.ScaleType.Fit
-MiniLogo.Size = UDim2.fromOffset(38, 38)
+MiniLogo.Size = UDim2.fromOffset(44, 44)
 MiniLogo.Position = UDim2.fromOffset(25, 170)
 MiniLogo.Parent = ScreenGui
-addCorner(MiniLogo, 19)
--- MiniLogo stroke removed (no logo)
+addCorner(MiniLogo, 10)
+
+local MiniLogoLabel = Instance.new("TextLabel")
+MiniLogoLabel.Name = "MiniLabel"
+MiniLogoLabel.BackgroundTransparency = 1
+MiniLogoLabel.Size = UDim2.new(1, 0, 1, 0)
+MiniLogoLabel.Text = "MIKSU"
+MiniLogoLabel.TextColor3 = Color3.fromRGB(245, 245, 255)
+MiniLogoLabel.TextSize = 11
+MiniLogoLabel.Font = Enum.Font.GothamBold
+MiniLogoLabel.Parent = MiniLogo
+
+local MiniLogoBg = Instance.new("Frame")
+MiniLogoBg.Name = "MiniBg"
+MiniLogoBg.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+MiniLogoBg.Size = UDim2.new(1, 0, 1, 0)
+MiniLogoBg.ZIndex = -1
+MiniLogoBg.Parent = MiniLogo
+addCorner(MiniLogoBg, 10)
+addStroke(MiniLogoBg, Color3.fromRGB(105, 105, 150), 0.25)
+
 makeDraggable(MiniLogo, MiniLogo)
 
 RecordOverlay = Instance.new("Frame")
