@@ -3194,12 +3194,9 @@ function makeFrame(timeValue, hum, hrp)
 
     if stateName == "Climbing" or stateName == "Swimming" then
         jumpFlag = false
-    elseif groundedNow then
-        -- FIX UTAMA: selama masih ada floor, lari di kontur naik/turun tetap Running.
-        -- Ini mencegah gundukan terbaca terjun hanya karena velocity Y turun/naik.
-        if stateName == "Jumping" or stateName == "Freefall" or stateName == "FallingDown" then
-            stateName = "Running"
-        end
+    elseif groundedNow and stateName ~= "Jumping" and stateName ~= "Freefall" and stateName ~= "FallingDown" then
+        -- Only promote by velocity while airborne; preserve Humanoid's explicit
+        -- jump/fall state even when floor contact lags by one physics step.
         jumpFlag = false
     elseif stateName == "Jumping" or stateName == "Freefall" or stateName == "FallingDown" then
         if yVel > 4 then
@@ -3388,31 +3385,6 @@ startRecording = function()
     local lastToolName = lastRecordToolName or ""
     local recStartClockLocal = recordStartClock
 
-    --// Jump suppression window (anti tap-thru REC button di HP)
-    local suppressJumpUntil = os.clock() + 0.35
-    local jumpGuardConn
-    jumpGuardConn = addConnection(RunService.Heartbeat:Connect(function()
-        if not isRecording or os.clock() >= suppressJumpUntil then
-            if jumpGuardConn then jumpGuardConn:Disconnect() jumpGuardConn = nil end
-            return
-        end
-        local c = LocalPlayer.Character
-        local h = c and c:FindFirstChildOfClass("Humanoid")
-        local r = c and c:FindFirstChild("HumanoidRootPart")
-        if h and r then
-            pcall(function()
-                h.Jump = false
-                local v = r.AssemblyLinearVelocity
-                if v.Y > 0 then
-                    r.AssemblyLinearVelocity = Vector3.new(v.X, 0, v.Z)
-                end
-                local s = getHumanoidStateName(h)
-                if s == "Jumping" or s == "Freefall" then
-                    h:ChangeState(Enum.HumanoidStateType.Running)
-                end
-            end)
-        end
-    end))
 
     if recordConnection then
         recordConnection:Disconnect()
