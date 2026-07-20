@@ -100,8 +100,8 @@ local DEFAULT_PLAYBACK_SPEED = 16
 
 --// FORMAT JSON KHUSUS TRG
 --// Samakan dengan JSON normal kedua.
-local BITWISE_JSON_WALKSPEED = 45
-local BITWISE_JSON_HIPHEIGHT = 5.331189155578613
+local TRG_JSON_WALKSPEED = 45
+local TRG_JSON_HIPHEIGHT = 5.331189155578613
 
 --// Filter record agar avatar diam tidak masuk JSON
 local MIN_RECORD_DISTANCE = 0.09
@@ -1626,19 +1626,19 @@ end
 --// Kalau Humanoid.WalkSpeed tetap 16 tetapi velocity/city map 50+,
 --// JSON harus menulis base speed dari momentum asli agar manual speed tidak ngaco.
 --// =========================================================
-function getFrameHorizontalCitySpeedForBitwise(fr)
+function getFrameHorizontalCitySpeedForTRG(fr)
     local city = tableToVec(fr and fr.city)
     return Vector3.new(city.X, 0, city.Z).Magnitude
 end
 
-function detectBitwiseBaseSpeed(frames)
+function detectTRGBaseSpeed(frames)
     local runValues = {}
     local allValues = {}
 
     for _, fr in ipairs(frames or {}) do
         if type(fr) == "table" then
             local stateText = tostring(fr.states or fr.state or "Running")
-            local hSpeed = getFrameHorizontalCitySpeedForBitwise(fr)
+            local hSpeed = getFrameHorizontalCitySpeedForTRG(fr)
             local ws = tonumber(fr.walkSpeed) or tonumber(fr.ws) or 0
             local candidate = math.max(hSpeed, ws)
 
@@ -2019,7 +2019,7 @@ end
 
 -- Fungsi baru untuk membuat 1 frame dalam format MIKSU TRG.
 -- Fungsi ini dibuat agar outputnya PERSIS seperti di file contoh Anda.
-function exportFrameForOniumRace(fr)
+function exportFrameForTRGRace(fr)
     fr = fr or {}
 
     local pos = tableToVec(fr.position)
@@ -2034,12 +2034,12 @@ function exportFrameForOniumRace(fr)
             or tonumber(fr.ws)
             or DEFAULT_PLAYBACK_SPEED
     else
-        ws = tonumber(fr.__bitwiseBaseSpeed)
+        ws = tonumber(fr.__trgBaseSpeed)
             or tonumber(fr.walkSpeed)
             or tonumber(fr.ws)
             or DEFAULT_PLAYBACK_SPEED
     end
-    local hip = tonumber(fr.hipHeight) or BITWISE_JSON_HIPHEIGHT
+    local hip = tonumber(fr.hipHeight) or TRG_JSON_HIPHEIGHT
 
     -- RAW: jump ditentukan dari data asli record, tetapi frame grounded tidak boleh
     -- ikut kebawa sebagai jump palsu saat lari di gundukan/jalan tidak rata.
@@ -2088,13 +2088,13 @@ function exportFrameForOniumRace(fr)
 end
 
 -- Fungsi utama untuk membangun payload yang akan disimpan ke JSON.
-function buildOniumRacePayload(name, frames)
+function buildTRGRacePayload(name, frames)
     local exportFrames = {}
     local timedFrames = retimeFramesForExport(frames or {})
 
-    local bitwiseBaseSpeed = nil
+    local trgBaseSpeed = nil
     if not EXPORT_RAW_EXACT_MODE then
-        bitwiseBaseSpeed = detectBitwiseBaseSpeed(timedFrames)
+        trgBaseSpeed = detectTRGBaseSpeed(timedFrames)
     end
 
     for i, fr in ipairs(timedFrames) do
@@ -2103,12 +2103,12 @@ function buildOniumRacePayload(name, frames)
         -- RAW EXACT: jangan jadikan semua frame 1 base speed hasil deteksi.
         -- Biarkan walkSpeed asli per frame dari record yang dipakai.
         if not EXPORT_RAW_EXACT_MODE then
-            copy.__bitwiseBaseSpeed = bitwiseBaseSpeed
+            copy.__trgBaseSpeed = trgBaseSpeed
         else
-            copy.__bitwiseBaseSpeed = nil
+            copy.__trgBaseSpeed = nil
         end
 
-        exportFrames[i] = exportFrameForOniumRace(copy)
+        exportFrames[i] = exportFrameForTRGRace(copy)
 
         if i % 5000 == 0 then
             task.wait()
@@ -2118,7 +2118,7 @@ function buildOniumRacePayload(name, frames)
     return exportFrames
 end
 
-function oniumJsonStringFast(v)
+function miksuJsonStringFast(v)
     local ok, encoded = pcall(function()
         return HttpService:JSONEncode(tostring(v or ""))
     end)
@@ -2128,11 +2128,11 @@ function oniumJsonStringFast(v)
     return '""'
 end
 
-function oniumJsonNumberFast(v)
+function miksuJsonNumberFast(v)
     return tostring(tonumber(v) or 0)
 end
 
-function oniumPayloadFrameToJson(fr)
+function miksuPayloadFrameToJson(fr)
     fr = fr or {}
 
     local md = fr.moveDirection or {}
@@ -2141,36 +2141,36 @@ function oniumPayloadFrameToJson(fr)
 
     return "{"
         .. '"jump":' .. ((fr.jump == true) and "true" or "false")
-        .. ',"hipHeight":' .. oniumJsonNumberFast(fr.hipHeight)
-        .. ',"rotation":' .. oniumJsonNumberFast(fr.rotation)
+        .. ',"hipHeight":' .. miksuJsonNumberFast(fr.hipHeight)
+        .. ',"rotation":' .. miksuJsonNumberFast(fr.rotation)
         .. ',"moveDirection":{'
-            .. '"y":' .. oniumJsonNumberFast(md.y)
-            .. ',"x":' .. oniumJsonNumberFast(md.x)
-            .. ',"z":' .. oniumJsonNumberFast(md.z)
+            .. '"y":' .. miksuJsonNumberFast(md.y)
+            .. ',"x":' .. miksuJsonNumberFast(md.x)
+            .. ',"z":' .. miksuJsonNumberFast(md.z)
         .. '}'
         .. ',"city":{'
-            .. '"y":' .. oniumJsonNumberFast(cv.y)
-            .. ',"x":' .. oniumJsonNumberFast(cv.x)
-            .. ',"z":' .. oniumJsonNumberFast(cv.z)
+            .. '"y":' .. miksuJsonNumberFast(cv.y)
+            .. ',"x":' .. miksuJsonNumberFast(cv.x)
+            .. ',"z":' .. miksuJsonNumberFast(cv.z)
         .. '}'
         .. ',"position":{'
-            .. '"y":' .. oniumJsonNumberFast(ps.y)
-            .. ',"x":' .. oniumJsonNumberFast(ps.x)
-            .. ',"z":' .. oniumJsonNumberFast(ps.z)
+            .. '"y":' .. miksuJsonNumberFast(ps.y)
+            .. ',"x":' .. miksuJsonNumberFast(ps.x)
+            .. ',"z":' .. miksuJsonNumberFast(ps.z)
         .. '}'
-        .. ',"times":' .. oniumJsonNumberFast(fr.times)
-        .. ',"walkSpeed":' .. oniumJsonNumberFast(fr.walkSpeed)
-        .. ',"tool":' .. oniumJsonStringFast(fr.tool)
-        .. ',"states":' .. oniumJsonStringFast(fr.states)
+        .. ',"times":' .. miksuJsonNumberFast(fr.times)
+        .. ',"walkSpeed":' .. miksuJsonNumberFast(fr.walkSpeed)
+        .. ',"tool":' .. miksuJsonStringFast(fr.tool)
+        .. ',"states":' .. miksuJsonStringFast(fr.states)
         .. "}"
 end
-function encodeOniumPayloadFast(payload)
+function encodeMIKSUPayloadFast(payload)
     local chunks = {"["}
     for i, fr in ipairs(payload or {}) do
         if i > 1 then
             chunks[#chunks + 1] = ","
         end
-        chunks[#chunks + 1] = oniumPayloadFrameToJson(fr)
+        chunks[#chunks + 1] = miksuPayloadFrameToJson(fr)
         if i % 1800 == 0 then
             task.wait()
         end
@@ -2183,8 +2183,8 @@ function saveFramesToFile(name, frames)
     ensureFolder()
 
     local path = filePathForName(name)
-    local payload = buildOniumRacePayload(name, frames)
-    local json = encodeOniumPayloadFast(payload)
+    local payload = buildTRGRacePayload(name, frames)
+    local json = encodeMIKSUPayloadFast(payload)
 
     if not json then
         return false, "JSON encode cepat gagal", path
@@ -3194,7 +3194,7 @@ function makeFrame(timeValue, hum, hrp)
         grounded = groundedNow == true,
         floorMaterial = floorMaterialName,
         rawState = rawStateName,
-        hipHeight = roundNumber(tonumber(hum.HipHeight) or BITWISE_JSON_HIPHEIGHT, 9),
+        hipHeight = roundNumber(tonumber(hum.HipHeight) or TRG_JSON_HIPHEIGHT, 9),
         rotation = roundNumber(yaw, 9),
         moveDirection = vecToTable(moveDir),
         city = vecToTable(vel),
@@ -3940,7 +3940,7 @@ function getFrameHorizontalVelocity(fr)
     return Vector3.new(v.X, 0, v.Z).Magnitude
 end
 
-function estimateRecordedPlaybackSpeedBitwise(frames)
+function estimateRecordedPlaybackSpeedTRG(frames)
     local values = {}
 
     for i, fr in ipairs(frames or {}) do
@@ -3984,7 +3984,7 @@ function estimateRecordedPlaybackSpeedBitwise(frames)
 end
 
 function getPlaybackSpeedForFrames(frames)
-    local recordedSpeed = estimateRecordedPlaybackSpeedBitwise(frames)
+    local recordedSpeed = estimateRecordedPlaybackSpeedTRG(frames)
     local raw = tostring(speedBox and speedBox.Text or "AUTO")
     raw = raw:gsub(",", ".")
     raw = raw:gsub("^%s+", "")
@@ -4040,7 +4040,7 @@ function findPreparedFrameAtTimeFast(frames, timeValue)
     return math.max(1, #frames - 1)
 end
 
-function applyFrameBitwiseStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpeed)
+function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpeed)
     if not a or not b or not hum or not hrp then
         return
     end
@@ -4246,7 +4246,7 @@ function findNearestPreparedFrameToPosition(frames, position)
     return closestIndex, closestDistance
 end
 
-function getBitwiseSmartStartForOnium(frames)
+function getTRGSmartStartForMIKSU(frames)
     local _, hum, hrp = getCharacter()
     if not hrp or not frames or #frames < 2 then
         return 1, tonumber(frames and frames[1] and (frames[1].times or frames[1].t)) or 0
@@ -4354,7 +4354,7 @@ function playFrames(frames, checkpointName)
             hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
         end)
 
-        local startIndex, startTime = getBitwiseSmartStartForOnium(frames)
+        local startIndex, startTime = getTRGSmartStartForMIKSU(frames)
         local startFrame = frames[startIndex] or frames[1]
         equipFrameTool(startFrame, char, hum)
         applyFrameInstant(startFrame)
@@ -4410,7 +4410,7 @@ function playFrames(frames, checkpointName)
             else
                 equipFrameTool(b, char, hum)
                 applyFrameMeta(b, hum)
-                applyFrameBitwiseStyle(a, b, alpha, hum, hrp, velocityMultiplier, playbackSpeed)
+                applyFrameTRGStyle(a, b, alpha, hum, hrp, velocityMultiplier, playbackSpeed)
             end
 
             RunService.Heartbeat:Wait()
@@ -5358,11 +5358,11 @@ function antiKedutBaseSpeed(frames)
         end
     end
     if #speeds <= 0 then
-        return tonumber(syncBaseSpeed) or tonumber(currentPlaybackSpeed) or BITWISE_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
+        return tonumber(syncBaseSpeed) or tonumber(currentPlaybackSpeed) or TRG_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
     end
     table.sort(speeds)
     local mid = math.floor((#speeds + 1) / 2)
-    local base = tonumber(speeds[mid]) or BITWISE_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
+    local base = tonumber(speeds[mid]) or TRG_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
     return math.max(base, ANTI_KEDUT_MIN_RUN_SPEED)
 end
 
