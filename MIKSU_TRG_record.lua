@@ -220,6 +220,26 @@ local recordStartClock = 0
 local preRecordWalkSpeed = nil
 local lastKnownToolWalkSpeed = nil
 local lastKnownEquippedTool = ""
+local savedMouseBehavior = nil
+local savedMouseIconEnabled = nil
+
+local function forceShiftLockOff()
+    pcall(function()
+        savedMouseBehavior = savedMouseBehavior or UserInputService.MouseBehavior
+        savedMouseIconEnabled = savedMouseIconEnabled or UserInputService.MouseIconEnabled
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        UserInputService.MouseIconEnabled = true
+    end)
+end
+
+local function restoreMouseLockState()
+    pcall(function()
+        if savedMouseBehavior ~= nil then UserInputService.MouseBehavior = savedMouseBehavior end
+        if savedMouseIconEnabled ~= nil then UserInputService.MouseIconEnabled = savedMouseIconEnabled end
+    end)
+    savedMouseBehavior = nil
+    savedMouseIconEnabled = nil
+end
 
 --// FIX MAP SPEED AFTER PREVIEW/PLAY STOP:
 --// Setiap map bisa punya WalkSpeed berbeda.
@@ -3302,6 +3322,8 @@ startRecording = function()
         return
     end
 
+    forceShiftLockOff()
+
     --// =====================================================
     --// MOBILE / PC SAFE START
     --// Reset state Humanoid biar tidak ada bug "kum tinggi"
@@ -3487,6 +3509,7 @@ stopRecording = function()
         RecordOverlay.Visible = false
         MainFrame.Visible = true
         restoreCharacterControl()
+        restoreMouseLockState()
         return
     end
 
@@ -3504,6 +3527,7 @@ stopRecording = function()
     MainFrame.Visible = true
 
     restoreCharacterControl()
+    restoreMouseLockState()
 
     if #temporaryRecord > 0 then
         if saveNameBox and trimText(saveNameBox.Text) == "" then
@@ -4075,6 +4099,9 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
     local yaw = lerpAngle(ra, rb, eased)
 
     local st = getFrameStateText(b)
+    local previousState = getFrameStateText(a)
+    local landing = (previousState == "Freefall" or previousState == "FallingDown" or isJumpStateText(previousState))
+        and not isJumpStateText(st) and st ~= "Freefall" and st ~= "FallingDown"
 
     --// IDLE HOLD (anti getar):
     if isIdlePlaybackSegment(a, b) then
@@ -4165,7 +4192,7 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
     end)
 
     local isJumping = (b.jump == true) or isJumpStateText(st)
-    local isFreefall = st == "Freefall" or st == "FallingDown" or posDeltaVel.Y < -2 or mapVel.Y < -2
+    local isFreefall = not landing and (st == "Freefall" or st == "FallingDown" or posDeltaVel.Y < -2 or mapVel.Y < -2)
     local isClimbing = st == "Climbing"
     local isSwimming = st == "Swimming"
 
@@ -4216,7 +4243,8 @@ function applyFrameTRGStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpee
             hum:ChangeState(Enum.HumanoidStateType.Climbing)
 
         elseif isSwimming then
-            hrp.AssemblyLinearVelocity = Vector3.new(hVel.X, yVel, hVel.Z)
+            local landingY = landing and math.max(0, posDeltaVel.Y) or yVel
+            hrp.AssemblyLinearVelocity = Vector3.new(hVel.X, landingY, hVel.Z)
             hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
             hum:ChangeState(Enum.HumanoidStateType.Swimming)
 
@@ -4874,6 +4902,8 @@ rollbackRecording = function()
         notify("Rollback", "Recording belum berjalan", 2)
         return
     end
+
+    forceShiftLockOff()
 
     --// Kalau rollback sedang jalan, pencet lagi = stop rollback
     if isRollbacking then
