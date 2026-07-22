@@ -36,7 +36,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --// Config
 local FOLDER_NAME = "MIKSU_TRG_RECORDER"
-local CUSTOM_LOGO_ASSET = "rbxassetid://130280202431400"
+local CUSTOM_LOGO_ASSET = ""
 local USE_NATURAL_MAP_JUMP = true
 local USE_MAP_WALKSPEED_ON_PLAYBACK = true
 local USE_MAP_HIPHEIGHT_ON_PLAYBACK = true
@@ -134,11 +134,10 @@ local SPEED_TIMING_MIN_DT = 0.006
 local SPEED_TIMING_MAX_DT = 0.18
 
 --// FIX JUMP ANIMATION + TRAMPOLINE SPAM 2026-07-22:
---// Problem 1: Tangan pas loncat delay/setengah badan - state transition terlalu cepat
+--// Problem 1: Tangan instant tanpa delay
 --// Problem 2: Trampoline spam jump sound - velocity bouncing trigger state berulang
---// Fix: debounce state change + delay untuk animation
+--// Fix: debounce state change untuk anti spam
 local JUMP_STATE_DEBOUNCE_TIME = 0.12
-local JUMP_ANIMATION_DELAY = 0.035
 local JUMP_VELOCITY_HYSTERESIS = 2.5
 
 --// Jangan tarik karakter untuk jarak jauh.
@@ -210,7 +209,6 @@ local playToken = 0
 --// FIX JUMP ANIMATION + TRAMPOLINE SPAM STATE TRACKING
 local lastJumpStateChangeTime = 0
 local lastGroundedState = true
-local pendingJumpAnimation = false
 
 --// Speed sync seperti MIKSU TRG Race
 --// currentPlaybackSpeed = speed yang kamu set dari speedometer / manual.
@@ -314,7 +312,6 @@ function cleanup()
     --// Reset jump state tracking
     lastJumpStateChangeTime = 0
     lastGroundedState = true
-    pendingJumpAnimation = false
 
     --// Hapus titik sambungan kalau script diexecute ulang / diclose
     pcall(function()
@@ -3342,7 +3339,6 @@ startRecording = function()
     --// Reset jump state tracking untuk recording baru
     lastJumpStateChangeTime = 0
     lastGroundedState = true
-    pendingJumpAnimation = false
 
     recordFrames = {}
     temporaryRecord = {}
@@ -3569,22 +3565,14 @@ function applyFrameMeta(fr, hum)
         local timeSinceLastChange = now - lastJumpStateChangeTime
         
         if st == "Jumping" then
-            -- Debounce: jangan spam jump state
+            -- Debounce: jangan spam jump state (anti trampoline spam)
             if timeSinceLastChange >= JUMP_STATE_DEBOUNCE_TIME then
                 lastJumpStateChangeTime = now
                 lastGroundedState = false
                 
-                -- Delay animation agar tangan naik smooth
-                if not pendingJumpAnimation then
-                    pendingJumpAnimation = true
-                    task.delay(JUMP_ANIMATION_DELAY, function()
-                        pcall(function()
-                            hum.Jump = true
-                            hum:ChangeState(Enum.HumanoidStateType.Jumping)
-                            pendingJumpAnimation = false
-                        end)
-                    end)
-                end
+                -- Tangan instant, tidak pakai delay
+                hum.Jump = true
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
             end
         elseif st == "Freefall" then
             if timeSinceLastChange >= JUMP_STATE_DEBOUNCE_TIME then
