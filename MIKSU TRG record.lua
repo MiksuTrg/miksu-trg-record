@@ -19,7 +19,7 @@
 --// =========================================================
 --// ANTI-COPY PROTECTION
 local MIKSU_SECURITY = {}
-MIKSU_SECURITY.VERSION = "1.7.3"
+MIKSU_SECURITY.VERSION = "1.7.4"
 MIKSU_SECURITY.BUILD = "20260723"
 MIKSU_SECURITY.SIGNATURE = "MIKSU_TRG_OFFICIAL_BUILD"
 
@@ -97,7 +97,7 @@ local RECORD_LIGHT_MODE = true
 local RECORD_MIN_SAMPLE_DT = 0.0085
 local RECORD_AIR_SAMPLE_DT = 0.0045
 local RECORD_UI_UPDATE_INTERVAL = 0.10
-local RECORD_GROUND_CACHE_INTERVAL = 0.035  -- v1.7.1: turun dari 0.055 untuk fast parkour
+local RECORD_GROUND_CACHE_INTERVAL = 0.025  -- v1.7.4: turun dari 0.035 untuk obstacle rapat
 local RECORD_TOOL_CACHE_INTERVAL = 0.15
 
 --// PATCH MOBILE DELTA JUMP 2026-05-14:
@@ -160,9 +160,10 @@ local SPEED_TIMING_MIN_DT = 0.006
 local SPEED_TIMING_MAX_DT = 0.18
 
 --// FIX JUMP ANIMATION + TRAMPOLINE SPAM 2026-07-22:
---// v1.7.1: Context-aware debounce
-local JUMP_STATE_DEBOUNCE_TIME = 0.08  -- v1.7.1: turun dari 0.12
-local JUMP_VELOCITY_HYSTERESIS = 2.5
+--// v1.7.4: Trampoline anti-spam + velocity-aware state
+local JUMP_STATE_DEBOUNCE_TIME = 0.18  -- v1.7.4: naik dari 0.08 untuk trampoline
+local JUMP_VELOCITY_HYSTERESIS = 8.0  -- v1.7.4: naik dari 2.5 untuk bounce detection
+local FREEFALL_TO_GROUND_MIN_TIME = 0.12  -- v1.7.4: anti spam Running saat landing
 
 --// Jangan tarik karakter untuk jarak jauh.
 --// Kalau jarak antar frame/antar file terlalu jauh, playback akan cut/teleport sekali, bukan ditarik bolak-balik.
@@ -3582,11 +3583,14 @@ function applyFrameMeta(fr, hum)
     local now = os.clock()
     
     --// FIX JUMP ANIMATION DELAY + TRAMPOLINE SPAM:
-    --// Debounce state changes untuk prevent spam saat bouncing velocity (trampoline)
-    --// Delay animation untuk ensure tangan/body animation complete
+    --// v1.7.4: Velocity-aware state + anti spam untuk trampoline bounce
     pcall(function()
         local isAirState = (st == "Jumping" or st == "Freefall")
         local timeSinceLastChange = now - lastJumpStateChangeTime
+        
+        -- v1.7.4: Get current velocity untuk detect bounce/spam
+        local currentVelocity = hrp.AssemblyLinearVelocity
+        local verticalVel = math.abs(currentVelocity.Y)
         
         if st == "Jumping" then
             -- Debounce: jangan spam jump state (anti trampoline spam)
@@ -3594,7 +3598,6 @@ function applyFrameMeta(fr, hum)
                 lastJumpStateChangeTime = now
                 lastGroundedState = false
                 
-                -- Tangan instant, tidak pakai delay
                 hum.Jump = true
                 hum:ChangeState(Enum.HumanoidStateType.Jumping)
             end
@@ -3611,11 +3614,23 @@ function applyFrameMeta(fr, hum)
             lastGroundedState = false
             hum:ChangeState(Enum.HumanoidStateType.Swimming)
         elseif st == "Running" then
-            -- Reset debounce saat grounded
-            if not lastGroundedState then
+            -- v1.7.4: CRITICAL FIX - jangan force Running kalau velocity masih tinggi
+            -- Ini fix "kaki lari saat jatuh" dan spam sound saat trampoline bounce
+            local wasAirborne = not lastGroundedState
+            local stillFalling = verticalVel > JUMP_VELOCITY_HYSTERESIS
+            
+            if wasAirborne and stillFalling then
+                -- Masih jatuh dari ketinggian, jangan paksa Running
+                -- Biarkan physics natural settle dulu
+                return
+            end
+            
+            -- Reset debounce saat benar-benar grounded
+            if not lastGroundedState and timeSinceLastChange >= FREEFALL_TO_GROUND_MIN_TIME then
                 lastJumpStateChangeTime = now
                 lastGroundedState = true
             end
+            
             hum:ChangeState(Enum.HumanoidStateType.Running)
         end
     end)
@@ -3676,9 +3691,35 @@ function applyFrameInstant(fr)
     pcall(function()
         local pos = tableToVec(fr.position)
 
-        --// PATCH LOCK PLAY:
+        --// PATCH LOCK PLAY + v1.7.4 SLOPE FIX:
         --// Posisi + hadap badan selalu ikut data record.
-        hrp.CFrame = getFrameCFrame(fr)
+        --// Terrain-aware positioning untuk anti floating di slope
+        local targetCF = getFrameCFrame(fr)
+        
+        --// v1.7.4: Raycast untuk detect ground height di slope
+        local rayParams = RaycastParams.new()
+        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+        rayParams.FilterDescendantsInstances = {char}
+        
+        local rayOrigin = targetCF.Position + Vector3.new(0, 2, 0)
+        local rayDirection = Vector3.new(0, -8, 0)
+        
+        local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+        if rayResult and rayResult.Position then
+            local groundY = rayResult.Position.Y
+            local targetY = targetCF.Position.Y
+            local expectedHeight = tonumber(fr.hipHeight or hum.HipHeight or 2) + 2
+            local actualHeight = targetY - groundY
+            
+            --// Kalau floating >1.5 stud dari expected height, adjust ke ground
+            if math.abs(actualHeight - expectedHeight) > 1.5 then
+                local adjustedY = groundY + expectedHeight
+                local _, yaw, _ = targetCF:ToOrientation()
+                targetCF = CFrame.new(targetCF.Position.X, adjustedY, targetCF.Position.Z) * CFrame.Angles(0, yaw, 0)
+            end
+        end
+        
+        hrp.CFrame = targetCF
     end)
 end
 
@@ -7076,9 +7117,19 @@ bindButton(RecordBtn, function()
     end)
     
     --// Beri waktu map re-apply ShiftLock / kamera-nya
-    --// Extended wait jika ShiftLock aktif (butuh lebih lama untuk settle)
-    local waitTime = hadShiftLock and 0.18 or 0.05
-    task.wait(waitTime)
+    --// v1.7.4: Extended wait + force Jump=false untuk anti ShiftLock jump bug
+    local waitTime = hadShiftLock and 0.28 or 0.06  -- v1.7.4: naik dari 0.18/0.05
+    
+    for i = 1, 3 do
+        task.wait(waitTime / 3)
+        
+        --// v1.7.4: CRITICAL - Force Jump = false untuk cancel engine auto-jump
+        pcall(function()
+            if hum then
+                hum.Jump = false
+            end
+        end)
+    end
     startRecording()
 
     --// FIX MOBILE SHIFTLOCK JUMP BUG:
