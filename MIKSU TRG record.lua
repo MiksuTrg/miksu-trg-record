@@ -5,36 +5,12 @@
 --// =========================================================
 
 --// =========================================================
---// MIKSU TRG Record / MIKSU Format
+--// ONIUM Recorder / BittWise Recorder
 --// Delta + Xeno Mobile Friendly
---// FULL MIKSU FORMAT SUPPORT + RAW MOMENTUM + ANTI KEDUT + SAFE ROLLBACK + CP MARKER
+--// FULL BITWISE SUPPORT + RAW MOMENTUM + ANTI KEDUT + SAFE ROLLBACK + CP MARKER
 --// PATCH: AUTO MAP CLEAN + ANTI KEDUT + NORMAL SPEED LOCK + MERGE ANTI SPEED SPIKE
 --// =========================================================
 
---// =========================================================
---// MIKSU TRG RECORD v1.7.1
---// © 2026 MiksuTrg - All Rights Reserved
---// Official: github.com/MiksuTrg/miksu-trg-record
---// v1.7.1: Bug fixes - smooth recording & playback
---// =========================================================
---// ANTI-COPY PROTECTION
-local MIKSU_SECURITY = {}
-MIKSU_SECURITY.VERSION = "1.8.1"
-MIKSU_SECURITY.BUILD = "20260723"
-MIKSU_SECURITY.SIGNATURE = "MIKSU_TRG_OFFICIAL_BUILD"
-
-local function verifyScript()
-    -- v1.7.2: Allow legitimate loadstring usage
-    -- Only block obvious stolen/rehosted copies
-    return true  -- Simple: always allow execution
-end
-
--- Initialize protection
-local MIKSU_AUTHORIZED = verifyScript()
-if not MIKSU_AUTHORIZED then
-    -- Silent exit - unauthorized copy won't show errors
-    return
-end
 --// Anti duplicate
 local ENV = _G
 pcall(function()
@@ -43,8 +19,8 @@ pcall(function()
     end
 end)
 
-if ENV.__MIKSU_TRG_RECORDER_CLEANUP then
-    pcall(ENV.__MIKSU_TRG_RECORDER_CLEANUP)
+if ENV.__ONIUM_RECORDER_CLEANUP then
+    pcall(ENV.__ONIUM_RECORDER_CLEANUP)
 end
 
 --// Services
@@ -58,8 +34,8 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --// Config
-local FOLDER_NAME = "MIKSU_TRG_RECORDER"
-local CUSTOM_LOGO_ASSET = ""
+local FOLDER_NAME = "ONIUM_RECORDER"
+local CUSTOM_LOGO_ASSET = "rbxassetid://130280202431400"
 local USE_NATURAL_MAP_JUMP = true
 local USE_MAP_WALKSPEED_ON_PLAYBACK = true
 local USE_MAP_HIPHEIGHT_ON_PLAYBACK = true
@@ -86,7 +62,7 @@ local AUTO_MAP_SPEED_SPIKE_CAP_MULT = 1.10
 local AUTO_MAP_SPEED_MIN_MOVEDIR = 0.045
 local AUTO_MAP_SPEED_USE_TIMING_FIX = true
 local AUTO_MAP_SPEED_MIN_DT = 0.0065
-local AUTO_MAP_SPEED_MAX_DT = 0.085 -- v1.7.1: turun dari 0.140 untuk anti spike
+local AUTO_MAP_SPEED_MAX_DT = 0.140 -- PATCH MERGE SPEED: boleh longgar agar dt tidak terlalu rapat lalu speed spike
 
 --// PATCH LIGHT RECORD:
 --// Record tetap akurat, tapi tidak lagi kerja berat setiap heartbeat.
@@ -94,10 +70,10 @@ local AUTO_MAP_SPEED_MAX_DT = 0.085 -- v1.7.1: turun dari 0.140 untuk anti spike
 --// 2) Ground raycast/cache tidak dipanggil setiap frame.
 --// 3) Frame record dibatasi agar HP/Delta/Xeno tidak berat saat REC.
 local RECORD_LIGHT_MODE = true
-local RECORD_MIN_SAMPLE_DT = 0.0085
-local RECORD_AIR_SAMPLE_DT = 0.0045
+local RECORD_MIN_SAMPLE_DT = 0.0085      -- kira-kira max 117 fps; 60 fps tetap aman
+local RECORD_AIR_SAMPLE_DT = 0.0045      -- saat jump/freefall boleh lebih rapat; mobile Delta butuh ambil tiap heartbeat
 local RECORD_UI_UPDATE_INTERVAL = 0.10
-local RECORD_GROUND_CACHE_INTERVAL = 0.025  -- v1.7.4: turun dari 0.035 untuk obstacle rapat
+local RECORD_GROUND_CACHE_INTERVAL = 0.055
 local RECORD_TOOL_CACHE_INTERVAL = 0.15
 
 --// PATCH MOBILE DELTA JUMP 2026-05-14:
@@ -112,20 +88,20 @@ local MOBILE_DELTA_GROUND_MIN_DT = 0.0085
 local MOBILE_DELTA_GROUND_MAX_DT = 0.030
 local MOBILE_DELTA_NORMAL_MAX_DT = 0.055
 local MOBILE_DELTA_KEEP_RAW_DT_RATIO = 0.85
-local MOBILE_DELTA_JUMP_Y_TRIGGER = 5.5  -- v1.7.1: turun dari 7.5 untuk low ceiling
+local MOBILE_DELTA_JUMP_Y_TRIGGER = 7.5
 local MOBILE_DELTA_FALL_Y_TRIGGER = -5.5
 local MOBILE_DELTA_VELOCITY_CONFIRM_FRAMES = 2
 
---// Playback speed mode dibuat sama seperti MIKSU TRG Race:
+--// Playback speed mode dibuat sama seperti ONIUM Race:
 --// angka speed = stud/s, bukan multiplier x.
 local MIN_PLAYBACK_SPEED = 8
 local MAX_PLAYBACK_SPEED = 500000
 local DEFAULT_PLAYBACK_SPEED = 16
 
---// FORMAT JSON KHUSUS MIKSU
+--// FORMAT JSON KHUSUS BITWISE
 --// Samakan dengan JSON normal kedua.
-local MIKSU_JSON_WALKSPEED = 45
-local MIKSU_JSON_HIPHEIGHT = 5.331189155578613
+local BITWISE_JSON_WALKSPEED = 45
+local BITWISE_JSON_HIPHEIGHT = 5.331189155578613
 
 --// Filter record agar avatar diam tidak masuk JSON
 local MIN_RECORD_DISTANCE = 0.09
@@ -137,10 +113,7 @@ local CLEAN_DISTANCE_THRESHOLD = 0.07
 local CLEAN_VERTICAL_THRESHOLD = 0.10
 
 --// Smooth playback / merge anti-blink
-local PLAYBACK_STEP_DISTANCE = 0.60  -- v1.7.1: adaptive base, was 0.85
-local PLAYBACK_STEP_DISTANCE_SLOW = 0.45
-local PLAYBACK_STEP_DISTANCE_FAST = 0.75
-local PLAYBACK_STEP_DISTANCE_AIR = 0.35
+local PLAYBACK_STEP_DISTANCE = 0.85
 local PLAYBACK_MIN_STEP_DISTANCE = 0.04
 
 --// FIX PLAY AFTER FINISH:
@@ -154,16 +127,10 @@ local PLAY_AGAIN_FINISH_TIME_WINDOW = 0.12
 local LOOP_SPEED_SAFE_CAP_MULTIPLIER = 1.12
 
 --// Speed sync limiter:
---// Export JSON akan retime berdasarkan jarak / speed set, supaya saat di-load di MIKSU TRG Race
+--// Export JSON akan retime berdasarkan jarak / speed set, supaya saat di-load di ONIUM Race
 --// speedometer tidak tembus jauh di atas angka yang kamu set.
 local SPEED_TIMING_MIN_DT = 0.006
 local SPEED_TIMING_MAX_DT = 0.18
-
---// FIX JUMP ANIMATION + TRAMPOLINE SPAM 2026-07-22:
---// v1.7.4: Trampoline anti-spam + velocity-aware state
-local JUMP_STATE_DEBOUNCE_TIME = 0.18  -- v1.7.4: naik dari 0.08 untuk trampoline
-local JUMP_VELOCITY_HYSTERESIS = 8.0  -- v1.7.4: naik dari 2.5 untuk bounce detection
-local FREEFALL_TO_GROUND_MIN_TIME = 0.12  -- v1.7.4: anti spam Running saat landing
 
 --// Jangan tarik karakter untuk jarak jauh.
 --// Kalau jarak antar frame/antar file terlalu jauh, playback akan cut/teleport sekali, bukan ditarik bolak-balik.
@@ -231,15 +198,11 @@ local rollbackToken = 0
 local isPlaying = false
 local playToken = 0
 
---// FIX JUMP ANIMATION + TRAMPOLINE SPAM STATE TRACKING
-local lastJumpStateChangeTime = 0
-local lastGroundedState = true
-
---// Speed sync seperti MIKSU TRG Race
+--// Speed sync seperti ONIUM Race
 --// currentPlaybackSpeed = speed yang kamu set dari speedometer / manual.
 --// syncBaseSpeed = speed dasar yang akan ditulis ke JSON sebagai ws.
---// MIKSU TRG Race menghitung: speedMultiplier = currentPlaybackSpeed / recordedBaseSpeed.
---// Jadi kalau di MIKSU TRG Race kamu Set Speed dari speedometer dengan angka yang sama,
+--// ONIUM Race menghitung: speedMultiplier = currentPlaybackSpeed / recordedBaseSpeed.
+--// Jadi kalau di ONIUM Race kamu Set Speed dari speedometer dengan angka yang sama,
 --// replay akan jalan normal/sinkron.
 local currentPlaybackSpeed = DEFAULT_PLAYBACK_SPEED
 local syncBaseSpeed = DEFAULT_PLAYBACK_SPEED
@@ -257,6 +220,31 @@ local recordStartClock = 0
 local preRecordWalkSpeed = nil
 local lastKnownToolWalkSpeed = nil
 local lastKnownEquippedTool = ""
+local savedMouseBehavior = nil
+local savedMouseIconEnabled = nil
+
+local function forceShiftLockOff()
+    pcall(function()
+        savedMouseBehavior = savedMouseBehavior or UserInputService.MouseBehavior
+        savedMouseIconEnabled = savedMouseIconEnabled
+            or UserInputService.MouseIconEnabled
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+        UserInputService.MouseIconEnabled = true
+    end)
+end
+
+local function restoreMouseLockState()
+    pcall(function()
+        if savedMouseBehavior ~= nil then
+            UserInputService.MouseBehavior = savedMouseBehavior
+        end
+        if savedMouseIconEnabled ~= nil then
+            UserInputService.MouseIconEnabled = savedMouseIconEnabled
+        end
+    end)
+    savedMouseBehavior = nil
+    savedMouseIconEnabled = nil
+end
 
 --// FIX MAP SPEED AFTER PREVIEW/PLAY STOP:
 --// Setiap map bisa punya WalkSpeed berbeda.
@@ -333,10 +321,7 @@ function cleanup()
     isPlaying = false
     isRecording = false
     isRollbacking = false
-    
-    --// Reset jump state tracking
-    lastJumpStateChangeTime = 0
-    lastGroundedState = true
+    restoreMouseLockState()
 
     --// Hapus titik sambungan kalau script diexecute ulang / diclose
     pcall(function()
@@ -345,12 +330,12 @@ function cleanup()
             seamDotFolder = nil
         end
 
-        local old = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
+        local old = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
         if old then
             old:Destroy()
         end
 
-        local oldCp = workspace:FindFirstChild("MIKSU_CP_MARKERS")
+        local oldCp = workspace:FindFirstChild("ONIUM_CP_MARKERS")
         if oldCp then
             oldCp:Destroy()
         end
@@ -363,7 +348,7 @@ function cleanup()
     end)
 end
 
-ENV.__MIKSU_TRG_RECORDER_CLEANUP = cleanup
+ENV.__ONIUM_RECORDER_CLEANUP = cleanup
 
 function roundNumber(n, dec)
     dec = dec or 3
@@ -1011,11 +996,11 @@ function formatTime(t)
 end
 
 function notify(title, text, sec)
-    title = tostring(title or "MIKSU TRG")
+    title = tostring(title or "ONIUM")
     text = tostring(text or "")
     sec = sec or 2
 
-    warn("[MIKSU TRG Record] " .. title .. " - " .. text)
+    warn("[ONIUM Recorder] " .. title .. " - " .. text)
 
     if not ToastLabel then
         return
@@ -1046,7 +1031,7 @@ function clearMergeDots()
             seamDotFolder = nil
         end
 
-        local old = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
+        local old = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
         if old then
             old:Destroy()
         end
@@ -1058,13 +1043,13 @@ function getMergeDotFolder()
         return seamDotFolder
     end
 
-    local old = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
+    local old = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
     if old then
         old:Destroy()
     end
 
     seamDotFolder = Instance.new("Folder")
-    seamDotFolder.Name = "MIKSU_MERGE_DOTS"
+    seamDotFolder.Name = "ONIUM_MERGE_DOTS"
     seamDotFolder.Parent = workspace
 
     return seamDotFolder
@@ -1094,7 +1079,7 @@ end
 
 function makeBillboardLabel(parent, text, color)
     local bill = Instance.new("BillboardGui")
-    bill.Name = "MIKSU_Label"
+    bill.Name = "ONIUM_Label"
     bill.Size = UDim2.fromOffset(105, 26)
     bill.StudsOffset = Vector3.new(0, 1.7, 0)
     bill.AlwaysOnTop = false
@@ -1133,7 +1118,7 @@ end
 
 function createMarkerPart(folder, name, pos, color, size, shape)
     local p = Instance.new("Part")
-    p.Name = tostring(name or "MIKSU_MARK")
+    p.Name = tostring(name or "ONIUM_MARK")
     p.Anchored = true
     p.CanCollide = false
     p.CanTouch = false
@@ -1212,13 +1197,13 @@ function createMergeDotPath(joinNumber, cpName, previousPos, joinPos)
     if firstDot and lastDot and firstDot ~= lastDot then
         pcall(function()
             local a0 = Instance.new("Attachment")
-            a0.Name = "MIKSU_BEAM_A"
+            a0.Name = "ONIUM_BEAM_A"
             a0.Parent = firstDot
             local a1 = Instance.new("Attachment")
-            a1.Name = "MIKSU_BEAM_B"
+            a1.Name = "ONIUM_BEAM_B"
             a1.Parent = lastDot
             local beam = Instance.new("Beam")
-            beam.Name = "MIKSU_JOIN_BEAM"
+            beam.Name = "ONIUM_JOIN_BEAM"
             beam.Attachment0 = a0
             beam.Attachment1 = a1
             beam.Width0 = 0.12
@@ -1237,7 +1222,7 @@ function clearCheckpointMarkers()
     CP_MARKER_CULLER_TOKEN = CP_MARKER_CULLER_TOKEN + 1
 
     pcall(function()
-        local old = workspace:FindFirstChild("MIKSU_CP_MARKERS")
+        local old = workspace:FindFirstChild("ONIUM_CP_MARKERS")
         if old then
             old:Destroy()
         end
@@ -1245,13 +1230,13 @@ function clearCheckpointMarkers()
 end
 
 function getCheckpointMarkerFolder()
-    local old = workspace:FindFirstChild("MIKSU_CP_MARKERS")
+    local old = workspace:FindFirstChild("ONIUM_CP_MARKERS")
     if old then
         return old
     end
 
     local folder = Instance.new("Folder")
-    folder.Name = "MIKSU_CP_MARKERS"
+    folder.Name = "ONIUM_CP_MARKERS"
     folder.Parent = workspace
     return folder
 end
@@ -1401,7 +1386,7 @@ function refreshCheckpointMarkers()
         end
     end
 
-    startCheckpointMarkerDistanceCuller(workspace:FindFirstChild("MIKSU_CP_MARKERS"))
+    startCheckpointMarkerDistanceCuller(workspace:FindFirstChild("ONIUM_CP_MARKERS"))
 end
 
 function updateCpMarkerToggleButton()
@@ -1470,7 +1455,7 @@ function toggleSingleCheckpointMarker(cp)
 end
 
 function countMergeDots()
-    local folder = workspace:FindFirstChild("MIKSU_MERGE_DOTS")
+    local folder = workspace:FindFirstChild("ONIUM_MERGE_DOTS")
     local count = 0
 
     if folder then
@@ -1490,19 +1475,9 @@ function smoothStep(a)
 end
 
 function lerpAngle(a, b, t)
-    local diff = b - a
-    diff = diff - math.floor((diff + math.pi) / (2 * math.pi)) * (2 * math.pi)
-    return a + diff * t
-end
-
---// v1.8: Cubic easing untuk smooth, natural interpolation
-function easeCubic(t)
-    -- Cubic in-out easing: smooth acceleration/deceleration
-    if t < 0.5 then
-        return 4 * t * t * t
-    else
-        return 1 - math.pow(-2 * t + 2, 3) / 2
-    end
+    local delta = b - a
+    delta = math.atan(math.sin(delta), math.cos(delta))
+    return a + delta * t
 end
 --// =========================================================
 --// FIX NO SHIFT LOCK PLAYBACK
@@ -1672,24 +1647,24 @@ function prepareRawExactFramesForSave(frames)
 end
 
 --// =========================================================
---// MIKSU FORMAT SUPPORT SPEED DETECTOR
---// MIKSU Format replay memakai walkSpeed frame pertama sebagai base speed.
+--// BITWISE SUPPORT SPEED DETECTOR
+--// BitWise replay memakai walkSpeed frame pertama sebagai base speed.
 --// Kalau Humanoid.WalkSpeed tetap 16 tetapi velocity/city map 50+,
 --// JSON harus menulis base speed dari momentum asli agar manual speed tidak ngaco.
 --// =========================================================
-function getFrameHorizontalCitySpeedForMIKSU(fr)
+function getFrameHorizontalCitySpeedForBitwise(fr)
     local city = tableToVec(fr and fr.city)
     return Vector3.new(city.X, 0, city.Z).Magnitude
 end
 
-function detectMIKSUBaseSpeed(frames)
+function detectBitwiseBaseSpeed(frames)
     local runValues = {}
     local allValues = {}
 
     for _, fr in ipairs(frames or {}) do
         if type(fr) == "table" then
             local stateText = tostring(fr.states or fr.state or "Running")
-            local hSpeed = getFrameHorizontalCitySpeedForMIKSU(fr)
+            local hSpeed = getFrameHorizontalCitySpeedForBitwise(fr)
             local ws = tonumber(fr.walkSpeed) or tonumber(fr.ws) or 0
             local candidate = math.max(hSpeed, ws)
 
@@ -2068,7 +2043,7 @@ function autoMapCleanSpeedForSave(frames)
     return frames, changed or 0, normal
 end
 
--- Fungsi baru untuk membuat 1 frame dalam format MIKSU TRG Race.
+-- Fungsi baru untuk membuat 1 frame dalam format ONIUM Race.
 -- Fungsi ini dibuat agar outputnya PERSIS seperti di file contoh Anda.
 function exportFrameForOniumRace(fr)
     fr = fr or {}
@@ -2090,7 +2065,7 @@ function exportFrameForOniumRace(fr)
             or tonumber(fr.ws)
             or DEFAULT_PLAYBACK_SPEED
     end
-    local hip = tonumber(fr.hipHeight) or MIKSU_JSON_HIPHEIGHT
+    local hip = tonumber(fr.hipHeight) or BITWISE_JSON_HIPHEIGHT
 
     -- RAW: jump ditentukan dari data asli record, tetapi frame grounded tidak boleh
     -- ikut kebawa sebagai jump palsu saat lari di gundukan/jalan tidak rata.
@@ -2145,7 +2120,7 @@ function buildOniumRacePayload(name, frames)
 
     local bitwiseBaseSpeed = nil
     if not EXPORT_RAW_EXACT_MODE then
-        bitwiseBaseSpeed = detectMIKSUBaseSpeed(timedFrames)
+        bitwiseBaseSpeed = detectBitwiseBaseSpeed(timedFrames)
     end
 
     for i, fr in ipairs(timedFrames) do
@@ -2810,7 +2785,7 @@ end
 --// =========================================================
 
 ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MIKSU TRG Record"
+ScreenGui.Name = "ONIUM Recorder"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -2864,7 +2839,7 @@ Logo.Parent = LogoHolder
 
 local Title = Instance.new("TextLabel")
 Title.BackgroundTransparency = 1
-Title.Text = "MIKSU TRG Record | MIKSU Format Play"
+Title.Text = "ONIUM Recorder | BitWise Play"
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
 Title.TextColor3 = Color3.fromRGB(245, 245, 255)
@@ -3245,7 +3220,7 @@ function makeFrame(timeValue, hum, hrp)
         grounded = groundedNow == true,
         floorMaterial = floorMaterialName,
         rawState = rawStateName,
-        hipHeight = roundNumber(tonumber(hum.HipHeight) or MIKSU_JSON_HIPHEIGHT, 9),
+        hipHeight = roundNumber(tonumber(hum.HipHeight) or BITWISE_JSON_HIPHEIGHT, 9),
         rotation = roundNumber(yaw, 9),
         moveDirection = vecToTable(moveDir),
         city = vecToTable(vel),
@@ -3273,9 +3248,9 @@ function makeFrame(timeValue, hum, hrp)
     }
 end
 
--- v1.7.1: Rotation threshold turun untuk capture smooth turns
-local MIN_ROTATION_RECORD = 0.05  -- radian (~2.9 derajat) - was 0.1
-local lastRecordRotation = nil
+-- TAMBAHKAN VARIABLE GLOBAL (di bagian Config, baris sekitar 50)
+local MIN_ROTATION_RECORD = 0.1  -- radian (~5.7 derajat)
+local lastRecordRotation = nil   -- simpan rotasi terakhir
 
 -- UBAH FUNGSI isRealMovement
 function isRealMovement(hum, hrp, lastSavedPos)
@@ -3334,6 +3309,9 @@ startRecording = function()
         return
     end
 
+    -- Mouse lock must not remain active while recording or rollback is active.
+    forceShiftLockOff()
+
     --// =====================================================
     --// MOBILE / PC SAFE START
     --// Reset state Humanoid biar tidak ada bug "kum tinggi"
@@ -3370,10 +3348,6 @@ startRecording = function()
     isRollbacking = false
     rollbackCancel = false
     rollbackToken = rollbackToken + 1
-    
-    --// Reset jump state tracking untuk recording baru
-    lastJumpStateChangeTime = 0
-    lastGroundedState = true
 
     recordFrames = {}
     temporaryRecord = {}
@@ -3523,6 +3497,7 @@ stopRecording = function()
         RecordOverlay.Visible = false
         MainFrame.Visible = true
         restoreCharacterControl()
+        restoreMouseLockState()
         return
     end
 
@@ -3540,6 +3515,7 @@ stopRecording = function()
     MainFrame.Visible = true
 
     restoreCharacterControl()
+    restoreMouseLockState()
 
     if #temporaryRecord > 0 then
         if saveNameBox and trimText(saveNameBox.Text) == "" then
@@ -3590,57 +3566,18 @@ function applyFrameMeta(fr, hum)
     end
 
     local st = tostring(fr.states or "")
-    local now = os.clock()
-    
-    --// FIX JUMP ANIMATION DELAY + TRAMPOLINE SPAM:
-    --// v1.7.4: Velocity-aware state + anti spam untuk trampoline bounce
+
     pcall(function()
-        local isAirState = (st == "Jumping" or st == "Freefall")
-        local timeSinceLastChange = now - lastJumpStateChangeTime
-        
-        -- v1.7.4: Get current velocity untuk detect bounce/spam
-        local currentVelocity = hrp.AssemblyLinearVelocity
-        local verticalVel = math.abs(currentVelocity.Y)
-        
         if st == "Jumping" then
-            -- Debounce: jangan spam jump state (anti trampoline spam)
-            if timeSinceLastChange >= JUMP_STATE_DEBOUNCE_TIME then
-                lastJumpStateChangeTime = now
-                lastGroundedState = false
-                
-                hum.Jump = true
-                hum:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
+            hum.Jump = true
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
         elseif st == "Freefall" then
-            if timeSinceLastChange >= JUMP_STATE_DEBOUNCE_TIME then
-                lastJumpStateChangeTime = now
-                lastGroundedState = false
-                hum:ChangeState(Enum.HumanoidStateType.Freefall)
-            end
+            hum:ChangeState(Enum.HumanoidStateType.Freefall)
         elseif st == "Climbing" then
-            lastGroundedState = false
             hum:ChangeState(Enum.HumanoidStateType.Climbing)
         elseif st == "Swimming" then
-            lastGroundedState = false
             hum:ChangeState(Enum.HumanoidStateType.Swimming)
         elseif st == "Running" then
-            -- v1.7.4: CRITICAL FIX - jangan force Running kalau velocity masih tinggi
-            -- Ini fix "kaki lari saat jatuh" dan spam sound saat trampoline bounce
-            local wasAirborne = not lastGroundedState
-            local stillFalling = verticalVel > JUMP_VELOCITY_HYSTERESIS
-            
-            if wasAirborne and stillFalling then
-                -- Masih jatuh dari ketinggian, jangan paksa Running
-                -- Biarkan physics natural settle dulu
-                return
-            end
-            
-            -- Reset debounce saat benar-benar grounded
-            if not lastGroundedState and timeSinceLastChange >= FREEFALL_TO_GROUND_MIN_TIME then
-                lastJumpStateChangeTime = now
-                lastGroundedState = true
-            end
-            
             hum:ChangeState(Enum.HumanoidStateType.Running)
         end
     end)
@@ -3694,44 +3631,16 @@ function applyFrameInstant(fr)
     end
 
     pcall(function()
-        --// v1.8: Momentum preservation - jangan zero velocity instant (micro-stutter)
-        local currentVel = hrp.AssemblyLinearVelocity
-        hrp.AssemblyLinearVelocity = Vector3.new(currentVel.X * 0.85, 0, currentVel.Z * 0.85)
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
         hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end)
 
     pcall(function()
         local pos = tableToVec(fr.position)
 
-        --// PATCH LOCK PLAY + v1.7.4 SLOPE FIX:
+        --// PATCH LOCK PLAY:
         --// Posisi + hadap badan selalu ikut data record.
-        --// Terrain-aware positioning untuk anti floating di slope
-        local targetCF = getFrameCFrame(fr)
-        
-        --// v1.7.4: Raycast untuk detect ground height di slope
-        local rayParams = RaycastParams.new()
-        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-        rayParams.FilterDescendantsInstances = {char}
-        
-        local rayOrigin = targetCF.Position + Vector3.new(0, 2, 0)
-        local rayDirection = Vector3.new(0, -8, 0)
-        
-        local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
-        if rayResult and rayResult.Position then
-            local groundY = rayResult.Position.Y
-            local targetY = targetCF.Position.Y
-            local expectedHeight = tonumber(fr.hipHeight or hum.HipHeight or 2) + 2
-            local actualHeight = targetY - groundY
-            
-            --// Kalau floating >1.5 stud dari expected height, adjust ke ground
-            if math.abs(actualHeight - expectedHeight) > 1.5 then
-                local adjustedY = groundY + expectedHeight
-                local _, yaw, _ = targetCF:ToOrientation()
-                targetCF = CFrame.new(targetCF.Position.X, adjustedY, targetCF.Position.Z) * CFrame.Angles(0, yaw, 0)
-            end
-        end
-        
-        hrp.CFrame = targetCF
+        hrp.CFrame = getFrameCFrame(fr)
     end)
 end
 
@@ -3822,22 +3731,7 @@ function buildBridgeFramesBetween(lastFrame, nextFrame, stepDistance, maxFrames,
         return result
     end
 
-    -- v1.7.1: adaptive step based on context
-    local avgSpeed = (getPlaybackFrameHorizontalSpeed(lastFrame) + getPlaybackFrameHorizontalSpeed(nextFrame)) / 2
-    local isAirBridge = isAirState(lastFrame.states) or isAirState(nextFrame.states)
-    
-    if not stepDistance then
-        if isAirBridge then
-            stepDistance = PLAYBACK_STEP_DISTANCE_AIR
-        elseif avgSpeed < 30 then
-            stepDistance = PLAYBACK_STEP_DISTANCE_SLOW
-        elseif avgSpeed > 70 then
-            stepDistance = PLAYBACK_STEP_DISTANCE_FAST
-        else
-            stepDistance = PLAYBACK_STEP_DISTANCE
-        end
-    end
-    
+    stepDistance = tonumber(stepDistance) or PLAYBACK_STEP_DISTANCE
     maxFrames = tonumber(maxFrames) or MAX_BRIDGE_FRAMES
     maxDistance = tonumber(maxDistance) or PLAYBACK_MAX_SMOOTH_DISTANCE
 
@@ -4038,9 +3932,9 @@ end
 --// =========================================================
 
 --// =========================================================
---// MIKSU STYLE PLAYBACK UNTUK MIKSU TRG
---// Baca JSON MIKSU TRG/MIKSU Format, AUTO speed map, manual speed box.
---// Cara speed sama MIKSU Format: currentTime maju pakai speedMultiplier.
+--// BITWISE STYLE PLAYBACK UNTUK ONIUM
+--// Baca JSON ONIUM/BitWise, AUTO speed map, manual speed box.
+--// Cara speed sama BitWise: currentTime maju pakai speedMultiplier.
 --// =========================================================
 
 function getFrameStateText(fr)
@@ -4077,7 +3971,7 @@ function getFrameHorizontalVelocity(fr)
     return Vector3.new(v.X, 0, v.Z).Magnitude
 end
 
-function estimateRecordedPlaybackSpeedMIKSU(frames)
+function estimateRecordedPlaybackSpeedBitwise(frames)
     local values = {}
 
     for i, fr in ipairs(frames or {}) do
@@ -4121,7 +4015,7 @@ function estimateRecordedPlaybackSpeedMIKSU(frames)
 end
 
 function getPlaybackSpeedForFrames(frames)
-    local recordedSpeed = estimateRecordedPlaybackSpeedMIKSU(frames)
+    local recordedSpeed = estimateRecordedPlaybackSpeedBitwise(frames)
     local raw = tostring(speedBox and speedBox.Text or "AUTO")
     raw = raw:gsub(",", ".")
     raw = raw:gsub("^%s+", "")
@@ -4177,7 +4071,7 @@ function findPreparedFrameAtTimeFast(frames, timeValue)
     return math.max(1, #frames - 1)
 end
 
-function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpeed)
+function applyFrameBitwiseStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSpeed)
     if not a or not b or not hum or not hrp then
         return
     end
@@ -4191,20 +4085,11 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
     local eased = math.clamp(alpha or 0, 0, 1)
     local targetPos = pa:Lerp(pb, eased)
     local yaw = lerpAngle(ra, rb, eased)
-    
-    --// v1.8.1: FIX - Calculate dt first before angularVel
-    local timeDiff = (tonumber(b.times) or tonumber(b.t) or 0) - (tonumber(a.times) or tonumber(a.t) or 0)
-    if timeDiff <= 0.001 then
-        timeDiff = SAMPLE_INTERVAL
-    end
-    
-    --// v1.8: Angular velocity untuk smooth rotation (anti snap)
-    local rotDelta = (rb - ra)
-    if rotDelta > math.pi then rotDelta = rotDelta - 2 * math.pi end
-    if rotDelta < -math.pi then rotDelta = rotDelta + 2 * math.pi end
-    local angularVel = (rotDelta / timeDiff) * 0.3  -- v1.8.1: use timeDiff instead of undefined dt
 
     local st = getFrameStateText(b)
+    local previousState = getFrameStateText(a)
+    local landing = (previousState == "Freefall" or previousState == "FallingDown" or isJumpStateText(previousState))
+        and not isJumpStateText(st) and st ~= "Freefall" and st ~= "FallingDown"
 
     --// IDLE HOLD (anti getar):
     --// Segmen idle / nyaris diam tidak boleh di-Lerp + di-set velocity tiap heartbeat,
@@ -4243,11 +4128,10 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
         end
     end
 
-    --// v1.8.1: timeDiff already calculated above, remove duplicate
-    --// local timeDiff = (tonumber(b.times) or tonumber(b.t) or 0) - (tonumber(a.times) or tonumber(a.t) or 0)
-    --// if timeDiff <= 0.001 then
-    --//     timeDiff = SAMPLE_INTERVAL
-    --// end
+    local timeDiff = (tonumber(b.times) or tonumber(b.t) or 0) - (tonumber(a.times) or tonumber(a.t) or 0)
+    if timeDiff <= 0.001 then
+        timeDiff = SAMPLE_INTERVAL
+    end
 
     local mapVel = getFrameVelocityVector(b)
     if mapVel.Magnitude < 0.05 then
@@ -4286,22 +4170,13 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
     end)
 
     local isJumping = (b.jump == true) or isJumpStateText(st)
-    local isFreefall = st == "Freefall" or st == "FallingDown" or posDeltaVel.Y < -2 or mapVel.Y < -2
+    local isFreefall = not landing and (st == "Freefall" or st == "FallingDown" or posDeltaVel.Y < -2 or mapVel.Y < -2)
     local isClimbing = st == "Climbing"
     local isSwimming = st == "Swimming"
-    
-    --// FIX TRAMPOLINE BOUNCING VELOCITY HYSTERESIS:
-    --// Saat landing dari trampoline, velocity Y bouncing naik-turun cepat.
-    --// Tambah hysteresis untuk prevent state flip Jumping <-> Freefall terlalu cepat.
-    if lastGroundedState and math.abs(posDeltaVel.Y) < JUMP_VELOCITY_HYSTERESIS then
-        -- Baru landing, velocity masih kecil - stay grounded
-        isJumping = false
-        isFreefall = false
-    end
 
     pcall(function()
         --// PATCH LOCK PLAY:
-        --// MIKSU Format playback tetap lock ke yaw/rotation record.
+        --// BitWise playback tetap lock ke yaw/rotation record.
         hum.AutoRotate = false
         hrp.CFrame = CFrame.new(targetPos) * CFrame.Angles(0, yaw, 0)
 
@@ -4338,13 +4213,8 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
             end
             local fyVel = math.clamp(posDeltaVel.Y, -500, 300)
 
-            --// v1.8: Velocity interpolation untuk air movement (anti jitter)
-            local currentVel = hrp.AssemblyLinearVelocity
-            local targetVel = Vector3.new(fhX, fyVel, fhZ)
-            local smoothVel = currentVel:Lerp(targetVel, 0.65)
-            
-            hrp.AssemblyLinearVelocity = smoothVel
-            hrp.AssemblyAngularVelocity = Vector3.new(0, angularVel, 0)  -- v1.8: smooth rotation
+            hrp.AssemblyLinearVelocity = Vector3.new(fhX, fyVel, fhZ)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
             if isFreefall then
                 hum.Jump = false
@@ -4366,13 +4236,10 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
 
         else
             -- Running: tetap pakai city asli JSON agar speed tiap map tidak ngaco.
-            --// v1.8: Velocity interpolation untuk running (smooth transitions)
-            local currentVel = hrp.AssemblyLinearVelocity
-            local targetVel = Vector3.new(hVel.X, math.clamp(yVel, -80, 80), hVel.Z)
-            local smoothVel = currentVel:Lerp(targetVel, 0.7)
-            
-            hrp.AssemblyLinearVelocity = smoothVel
-            hrp.AssemblyAngularVelocity = Vector3.new(0, angularVel, 0)  -- v1.8: smooth rotation
+            -- Consume downward momentum on the first grounded frame after a jump.
+            local landingY = landing and math.max(0, posDeltaVel.Y) or math.clamp(yVel, -80, 80)
+            hrp.AssemblyLinearVelocity = Vector3.new(hVel.X, landingY, hVel.Z)
+            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
             if hVel.Magnitude > 0.45 then
                 hum:ChangeState(Enum.HumanoidStateType.Running)
@@ -4415,7 +4282,7 @@ function findNearestPreparedFrameToPosition(frames, position)
     return closestIndex, closestDistance
 end
 
-function getMIKSUSmartStartForOnium(frames)
+function getBitwiseSmartStartForOnium(frames)
     local _, hum, hrp = getCharacter()
     if not hrp or not frames or #frames < 2 then
         return 1, tonumber(frames and frames[1] and (frames[1].times or frames[1].t)) or 0
@@ -4523,28 +4390,11 @@ function playFrames(frames, checkpointName)
             hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
         end)
 
-        local startIndex, startTime = getMIKSUSmartStartForOnium(frames)
+        local startIndex, startTime = getBitwiseSmartStartForOnium(frames)
         local startFrame = frames[startIndex] or frames[1]
         equipFrameTool(startFrame, char, hum)
-        
-        --// v1.8: Soft-start playback - blend from current position (anti snap)
-        local currentPos = hrp.Position
-        local targetCF = getFrameCFrame(startFrame)
-        local distance = (targetCF.Position - currentPos).Magnitude
-        
-        if distance > 5 and distance < 50 then
-            -- Mid-range: smooth blend over 0.15s
-            for i = 1, 5 do
-                local alpha = i / 5
-                local blendCF = CFrame.new(currentPos:Lerp(targetCF.Position, alpha)) * CFrame.Angles(0, select(2, targetCF:ToOrientation()), 0)
-                pcall(function() hrp.CFrame = blendCF end)
-                task.wait(0.03)
-            end
-        else
-            -- Close or very far: instant apply
-            applyFrameInstant(startFrame)
-            task.wait(0.02)
-        end
+        applyFrameInstant(startFrame)
+        task.wait(0.02)
 
         local firstT = tonumber(frames[1].times) or tonumber(frames[1].t) or 0
         local lastT = tonumber(frames[#frames].times) or tonumber(frames[#frames].t) or firstT
@@ -4568,7 +4418,7 @@ function playFrames(frames, checkpointName)
                 realDt = 0.1
             end
 
-            -- Ini inti metode MIKSU Format: waktu playback dimajukan pakai multiplier speed.
+            -- Ini inti metode BitWise: waktu playback dimajukan pakai multiplier speed.
             -- Pakai timeMultiplier, bukan velocity langsung, agar mode loop tidak menumpuk speed.
             currentTime = currentTime + (realDt * timeMultiplier)
 
@@ -4589,7 +4439,6 @@ function playFrames(frames, checkpointName)
             end
 
             local alpha = math.clamp((absoluteTime - ta) / dt, 0, 1)
-            local eased = easeCubic(alpha)  -- v1.8: Use cubic easing instead of linear
 
             if b.seam == true or a.cutNext == true then
                 equipFrameTool(b, char, hum)
@@ -4597,7 +4446,7 @@ function playFrames(frames, checkpointName)
             else
                 equipFrameTool(b, char, hum)
                 applyFrameMeta(b, hum)
-                applyFrameMIKSUStyle(a, b, eased, hum, hrp, velocityMultiplier, playbackSpeed)  -- v1.8: use eased instead of alpha
+                applyFrameBitwiseStyle(a, b, alpha, hum, hrp, velocityMultiplier, playbackSpeed)
             end
 
             RunService.Heartbeat:Wait()
@@ -4838,7 +4687,7 @@ function getRollbackHoldCFrame(targetCF, hum)
         return targetCF
     end
 
-    return targetCF + Vector3.new(0, 0.4, 0)  -- v1.7.3: turun dari 0.85 untuk anti fall anim
+    return targetCF + Vector3.new(0, 0.85, 0)
 end
 
 function getRollbackRecordedGroundOffset(fr, hum)
@@ -4970,7 +4819,7 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
     --// Tahan sedikit di atas target, kecuali ada object/atap di atas kepala.
     local holdCF = getRollbackHoldCFrame(targetCF, hum)
 
-    for i = 1, 5 do  -- v1.7.3: turun dari 10 untuk anti freeze
+    for i = 1, 10 do
         if not isRecording or not isRollbacking or rollbackCancel or myRollbackToken ~= rollbackToken then
             pcall(function() hrp.Anchored = false end)
             pcall(function()
@@ -4995,7 +4844,7 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
         hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end)
 
-    task.wait(0.15)  -- v1.7.3: naik dari 0.08 untuk physics settle
+    task.wait(0.08)
 
     pcall(function()
         hrp.Anchored = false
@@ -5010,7 +4859,7 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
     end)
 
     --// Tunggu sebentar setelah unanchor. Kalau langsung tidak ada ground, berarti target tidak aman.
-    for _ = 1, 8 do  -- v1.7.3: naik dari 3 untuk obstacle validation
+    for _ = 1, 3 do
         RunService.Heartbeat:Wait()
     end
 
@@ -5018,15 +4867,12 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
     local okGround = false
 
     pcall(function()
-        okDistance = (hrp.Position - targetPos).Magnitude <= 3  -- v1.7.3: turun dari 7
+        okDistance = (hrp.Position - targetPos).Magnitude <= 7
         okGround = isRollbackStillGrounded(hrp.Position, targetFrame, hum)
     end)
 
     if okDistance and okGround then
         lastRecordSavedPos = hrp.Position
-        -- v1.7.3: Reset jump state untuk anti-loop
-        lastJumpStateChangeTime = 0
-        lastGroundedState = true
         return true
     end
 
@@ -5039,6 +4885,8 @@ rollbackRecording = function()
         notify("Rollback", "Recording belum berjalan", 2)
         return
     end
+
+    forceShiftLockOff()
 
     --// Kalau rollback sedang jalan, pencet lagi = stop rollback
     if isRollbacking then
@@ -5548,11 +5396,11 @@ function antiKedutBaseSpeed(frames)
         end
     end
     if #speeds <= 0 then
-        return tonumber(syncBaseSpeed) or tonumber(currentPlaybackSpeed) or MIKSU_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
+        return tonumber(syncBaseSpeed) or tonumber(currentPlaybackSpeed) or BITWISE_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
     end
     table.sort(speeds)
     local mid = math.floor((#speeds + 1) / 2)
-    local base = tonumber(speeds[mid]) or MIKSU_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
+    local base = tonumber(speeds[mid]) or BITWISE_JSON_WALKSPEED or DEFAULT_PLAYBACK_SPEED
     return math.max(base, ANTI_KEDUT_MIN_RUN_SPEED)
 end
 
@@ -5706,7 +5554,7 @@ end
 
 
 --// =========================================================
---// PATCH MIKSU TRG: NO IDLE BUT SMOOTH TURN AFTER IDLE
+--// PATCH ONIUM: NO IDLE BUT SMOOTH TURN AFTER IDLE
 --// Idle tetap dibuang, tapi rotasi saat diam tidak hilang kasar.
 --// Contoh fix: hadap barat diam -> langsung hadap timur/utara/selatan -> jalan
 --// hasil save tidak patah/snap, karena yaw disebar ke frame jalan berikutnya.
@@ -5776,7 +5624,7 @@ end
 
 
 --// =========================================================
---// PATCH MIKSU TRG: REFERENCE JUMP SAVE OPTIMIZER V2
+--// PATCH ONIUM: REFERENCE JUMP SAVE OPTIMIZER V2
 --// Target: kalau hasil record seperti checkpoint_1 masih kedut/pelan,
 --// saat SAVE dibuat lebih mirip checkpoint_2: ground gap antar jump dipadatkan,
 --// jalur jump dihaluskan, momentum udara distabilkan, dan timing tap-tap dirapikan.
@@ -5827,7 +5675,7 @@ REF_JUMP_KEEP_ORIGINAL_CITY_DIR = true
 REF_JUMP_MIN_MOTION_SPEED_KEEP = 8
 
 --// =========================================================
---// PATCH MIKSU TRG: RUNNING ANTI BLING / ANTI BLINK
+--// PATCH ONIUM: RUNNING ANTI BLING / ANTI BLINK
 --// Fokus fix: kadang saat PLAY hasil record lari ada blink/bling kecil.
 --// Penyebab umum: frame lari terlalu jauh tapi timing terlalu pendek setelah clean/save.
 --// Patch ini tidak mengubah sistem jump smoothing; hanya menjaga frame Running agar
@@ -7137,8 +6985,6 @@ bindButton(RecordBtn, function()
     --// supaya sisa state dari playback sebelumnya (AutoRotate, Jump,
     --// PlatformStand, velocity) tidak bocor ke recording baru.
     local startedGrounded = true
-    local hadShiftLock = false
-    
     pcall(function()
         local Players = game:GetService("Players")
         local lp = Players.LocalPlayer
@@ -7147,10 +6993,6 @@ bindButton(RecordBtn, function()
             local hum = char:FindFirstChildOfClass("Humanoid")
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if hum then
-                --// FIX SHIFTLOCK BUG 2026-07-22:
-                --// Deteksi ShiftLock aktif SEBELUM record untuk extend suppress time
-                hadShiftLock = (hum.AutoRotate == false)
-                
                 hum.Jump = false
                 hum.PlatformStand = false
                 hum.AutoRotate = true
@@ -7168,21 +7010,8 @@ bindButton(RecordBtn, function()
             end
         end
     end)
-    
     --// Beri waktu map re-apply ShiftLock / kamera-nya
-    --// v1.7.4: Extended wait + force Jump=false untuk anti ShiftLock jump bug
-    local waitTime = hadShiftLock and 0.28 or 0.06  -- v1.7.4: naik dari 0.18/0.05
-    
-    for i = 1, 3 do
-        task.wait(waitTime / 3)
-        
-        --// v1.7.4: CRITICAL - Force Jump = false untuk cancel engine auto-jump
-        pcall(function()
-            if hum then
-                hum.Jump = false
-            end
-        end)
-    end
+    task.wait(0.05)
     startRecording()
 
     --// FIX MOBILE SHIFTLOCK JUMP BUG:
@@ -7190,13 +7019,11 @@ bindButton(RecordBtn, function()
     --// Roblox (apalagi saat ShiftLock aktif), sehingga Humanoid.Jump ke-trigger
     --// tepat setelah recording mulai => lompat tinggi tidak terkendali.
     --// Solusi: peredam jump ~0.35 detik di awal recording.
-    --// Extended to 0.65s when ShiftLock was active for better settling.
     pcall(function()
         local RunService = game:GetService("RunService")
         local Players = game:GetService("Players")
         local lp = Players.LocalPlayer
-        local suppressTime = hadShiftLock and 0.65 or 0.35
-        local suppressUntil = os.clock() + suppressTime
+        local suppressUntil = os.clock() + 0.35
         local conn
         conn = addConnection(RunService.Heartbeat:Connect(function()
             if os.clock() >= suppressUntil or not isRecording then
@@ -7326,11 +7153,11 @@ task.spawn(function()
         end
 
         if count > 0 then
-            notify("MIKSU TRG Record", "Auto load " .. tostring(count) .. " JSON", 3)
+            notify("ONIUM Recorder", "Auto load " .. tostring(count) .. " JSON", 3)
         else
-            notify("MIKSU TRG Record", "Siap digunakan", 2)
+            notify("ONIUM Recorder", "Siap digunakan", 2)
         end
     else
-        notify("MIKSU TRG Record", "Siap. File API tidak lengkap, memory mode aktif.", 4)
+        notify("ONIUM Recorder", "Siap. File API tidak lengkap, memory mode aktif.", 4)
     end
 end)
