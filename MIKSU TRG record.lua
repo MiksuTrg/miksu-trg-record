@@ -5,7 +5,8 @@
 --// =========================================================
 
 --// =========================================================
---// ONIUM Recorder / BittWise Recorder
+--// ONIUM Recorder / BittWise Recorder  
+--// v1.5.1 SUPER SMOOTH - Bug fixes applied
 --// Delta + Xeno Mobile Friendly
 --// FULL BITWISE SUPPORT + RAW MOMENTUM + ANTI KEDUT + SAFE ROLLBACK + CP MARKER
 --// PATCH: AUTO MAP CLEAN + ANTI KEDUT + NORMAL SPEED LOCK + MERGE ANTI SPEED SPIKE
@@ -62,7 +63,7 @@ local AUTO_MAP_SPEED_SPIKE_CAP_MULT = 1.10
 local AUTO_MAP_SPEED_MIN_MOVEDIR = 0.045
 local AUTO_MAP_SPEED_USE_TIMING_FIX = true
 local AUTO_MAP_SPEED_MIN_DT = 0.0065
-local AUTO_MAP_SPEED_MAX_DT = 0.140 -- PATCH MERGE SPEED: boleh longgar agar dt tidak terlalu rapat lalu speed spike
+local AUTO_MAP_SPEED_MAX_DT = 0.085  -- v1.5.1: turun dari 0.140
 
 --// PATCH LIGHT RECORD:
 --// Record tetap akurat, tapi tidak lagi kerja berat setiap heartbeat.
@@ -73,7 +74,7 @@ local RECORD_LIGHT_MODE = true
 local RECORD_MIN_SAMPLE_DT = 0.0085      -- kira-kira max 117 fps; 60 fps tetap aman
 local RECORD_AIR_SAMPLE_DT = 0.0045      -- saat jump/freefall boleh lebih rapat; mobile Delta butuh ambil tiap heartbeat
 local RECORD_UI_UPDATE_INTERVAL = 0.10
-local RECORD_GROUND_CACHE_INTERVAL = 0.055
+local RECORD_GROUND_CACHE_INTERVAL = 0.025  -- v1.5.1: turun dari 0.055
 local RECORD_TOOL_CACHE_INTERVAL = 0.15
 
 --// PATCH MOBILE DELTA JUMP 2026-05-14:
@@ -88,7 +89,7 @@ local MOBILE_DELTA_GROUND_MIN_DT = 0.0085
 local MOBILE_DELTA_GROUND_MAX_DT = 0.030
 local MOBILE_DELTA_NORMAL_MAX_DT = 0.055
 local MOBILE_DELTA_KEEP_RAW_DT_RATIO = 0.85
-local MOBILE_DELTA_JUMP_Y_TRIGGER = 7.5
+local MOBILE_DELTA_JUMP_Y_TRIGGER = 5.5  -- v1.5.1: turun dari 7.5
 local MOBILE_DELTA_FALL_Y_TRIGGER = -5.5
 local MOBILE_DELTA_VELOCITY_CONFIRM_FRAMES = 2
 
@@ -113,7 +114,11 @@ local CLEAN_DISTANCE_THRESHOLD = 0.07
 local CLEAN_VERTICAL_THRESHOLD = 0.10
 
 --// Smooth playback / merge anti-blink
-local PLAYBACK_STEP_DISTANCE = 0.85
+--// v1.5.1: Adaptive step distance for smoother playback
+local PLAYBACK_STEP_DISTANCE = 0.60  -- base, was 0.85
+local PLAYBACK_STEP_DISTANCE_SLOW = 0.45  -- speed < 30
+local PLAYBACK_STEP_DISTANCE_FAST = 0.75  -- speed > 70
+local PLAYBACK_STEP_DISTANCE_AIR = 0.35   -- air movement
 local PLAYBACK_MIN_STEP_DISTANCE = 0.04
 
 --// FIX PLAY AFTER FINISH:
@@ -1475,9 +1480,18 @@ function smoothStep(a)
 end
 
 function lerpAngle(a, b, t)
-    local delta = b - a
-    delta = math.atan(math.sin(delta), math.cos(delta))
-    return a + delta * t
+    local diff = b - a
+    diff = diff - math.floor((diff + math.pi) / (2 * math.pi)) * (2 * math.pi)
+    return a + diff * t
+end
+
+--// v1.5.1: Cubic easing untuk smooth natural interpolation
+function easeCubic(t)
+    if t < 0.5 then
+        return 4 * t * t * t
+    else
+        return 1 - math.pow(-2 * t + 2, 3) / 2
+    end
 end
 --// =========================================================
 --// FIX NO SHIFT LOCK PLAYBACK
@@ -3631,7 +3645,9 @@ function applyFrameInstant(fr)
     end
 
     pcall(function()
-        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+--// v1.5.1: Momentum preservation (anti micro-stutter)
+        local currentVel = hrp.AssemblyLinearVelocity
+        hrp.AssemblyLinearVelocity = Vector3.new(currentVel.X * 0.85, 0, currentVel.Z * 0.85)
         hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end)
 
@@ -4082,7 +4098,7 @@ function applyFrameBitwiseStyle(a, b, alpha, hum, hrp, speedMultiplier, playback
     local ra = tonumber(a.rotation) or 0
     local rb = tonumber(b.rotation) or ra
 
-    local eased = math.clamp(alpha or 0, 0, 1)
+    local eased = easeCubic(math.clamp(alpha or 0, 0, 1))  -- v1.5.1: cubic easing instead of linear
     local targetPos = pa:Lerp(pb, eased)
     local yaw = lerpAngle(ra, rb, eased)
 
@@ -4840,7 +4856,9 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
 
     pcall(function()
         hrp.CFrame = targetCF
-        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+--// v1.5.1: Momentum preservation (anti micro-stutter)
+        local currentVel = hrp.AssemblyLinearVelocity
+        hrp.AssemblyLinearVelocity = Vector3.new(currentVel.X * 0.85, 0, currentVel.Z * 0.85)
         hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end)
 
