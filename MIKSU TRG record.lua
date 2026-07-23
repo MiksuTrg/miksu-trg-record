@@ -19,7 +19,7 @@
 --// =========================================================
 --// ANTI-COPY PROTECTION
 local MIKSU_SECURITY = {}
-MIKSU_SECURITY.VERSION = "1.8.0"
+MIKSU_SECURITY.VERSION = "1.8.1"
 MIKSU_SECURITY.BUILD = "20260723"
 MIKSU_SECURITY.SIGNATURE = "MIKSU_TRG_OFFICIAL_BUILD"
 
@@ -4192,11 +4192,17 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
     local targetPos = pa:Lerp(pb, eased)
     local yaw = lerpAngle(ra, rb, eased)
     
+    --// v1.8.1: FIX - Calculate dt first before angularVel
+    local timeDiff = (tonumber(b.times) or tonumber(b.t) or 0) - (tonumber(a.times) or tonumber(a.t) or 0)
+    if timeDiff <= 0.001 then
+        timeDiff = SAMPLE_INTERVAL
+    end
+    
     --// v1.8: Angular velocity untuk smooth rotation (anti snap)
     local rotDelta = (rb - ra)
     if rotDelta > math.pi then rotDelta = rotDelta - 2 * math.pi end
     if rotDelta < -math.pi then rotDelta = rotDelta + 2 * math.pi end
-    local angularVel = (rotDelta / dt) * 0.3  -- 30% dampened
+    local angularVel = (rotDelta / timeDiff) * 0.3  -- v1.8.1: use timeDiff instead of undefined dt
 
     local st = getFrameStateText(b)
 
@@ -4237,10 +4243,11 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
         end
     end
 
-    local timeDiff = (tonumber(b.times) or tonumber(b.t) or 0) - (tonumber(a.times) or tonumber(a.t) or 0)
-    if timeDiff <= 0.001 then
-        timeDiff = SAMPLE_INTERVAL
-    end
+    --// v1.8.1: timeDiff already calculated above, remove duplicate
+    --// local timeDiff = (tonumber(b.times) or tonumber(b.t) or 0) - (tonumber(a.times) or tonumber(a.t) or 0)
+    --// if timeDiff <= 0.001 then
+    --//     timeDiff = SAMPLE_INTERVAL
+    --// end
 
     local mapVel = getFrameVelocityVector(b)
     if mapVel.Magnitude < 0.05 then
