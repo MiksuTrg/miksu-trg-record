@@ -19,7 +19,7 @@
 --// =========================================================
 --// ANTI-COPY PROTECTION
 local MIKSU_SECURITY = {}
-MIKSU_SECURITY.VERSION = "1.7.4"
+MIKSU_SECURITY.VERSION = "1.8.0"
 MIKSU_SECURITY.BUILD = "20260723"
 MIKSU_SECURITY.SIGNATURE = "MIKSU_TRG_OFFICIAL_BUILD"
 
@@ -1490,9 +1490,19 @@ function smoothStep(a)
 end
 
 function lerpAngle(a, b, t)
-    local delta = b - a
-    delta = math.atan(math.sin(delta), math.cos(delta))
-    return a + delta * t
+    local diff = b - a
+    diff = diff - math.floor((diff + math.pi) / (2 * math.pi)) * (2 * math.pi)
+    return a + diff * t
+end
+
+--// v1.8: Cubic easing untuk smooth, natural interpolation
+function easeCubic(t)
+    -- Cubic in-out easing: smooth acceleration/deceleration
+    if t < 0.5 then
+        return 4 * t * t * t
+    else
+        return 1 - math.pow(-2 * t + 2, 3) / 2
+    end
 end
 --// =========================================================
 --// FIX NO SHIFT LOCK PLAYBACK
@@ -3684,7 +3694,9 @@ function applyFrameInstant(fr)
     end
 
     pcall(function()
-        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        --// v1.8: Momentum preservation - jangan zero velocity instant (micro-stutter)
+        local currentVel = hrp.AssemblyLinearVelocity
+        hrp.AssemblyLinearVelocity = Vector3.new(currentVel.X * 0.85, 0, currentVel.Z * 0.85)
         hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end)
 
@@ -4179,6 +4191,12 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
     local eased = math.clamp(alpha or 0, 0, 1)
     local targetPos = pa:Lerp(pb, eased)
     local yaw = lerpAngle(ra, rb, eased)
+    
+    --// v1.8: Angular velocity untuk smooth rotation (anti snap)
+    local rotDelta = (rb - ra)
+    if rotDelta > math.pi then rotDelta = rotDelta - 2 * math.pi end
+    if rotDelta < -math.pi then rotDelta = rotDelta + 2 * math.pi end
+    local angularVel = (rotDelta / dt) * 0.3  -- 30% dampened
 
     local st = getFrameStateText(b)
 
@@ -4313,8 +4331,13 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
             end
             local fyVel = math.clamp(posDeltaVel.Y, -500, 300)
 
-            hrp.AssemblyLinearVelocity = Vector3.new(fhX, fyVel, fhZ)
-            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            --// v1.8: Velocity interpolation untuk air movement (anti jitter)
+            local currentVel = hrp.AssemblyLinearVelocity
+            local targetVel = Vector3.new(fhX, fyVel, fhZ)
+            local smoothVel = currentVel:Lerp(targetVel, 0.65)
+            
+            hrp.AssemblyLinearVelocity = smoothVel
+            hrp.AssemblyAngularVelocity = Vector3.new(0, angularVel, 0)  -- v1.8: smooth rotation
 
             if isFreefall then
                 hum.Jump = false
@@ -4336,8 +4359,13 @@ function applyFrameMIKSUStyle(a, b, alpha, hum, hrp, speedMultiplier, playbackSp
 
         else
             -- Running: tetap pakai city asli JSON agar speed tiap map tidak ngaco.
-            hrp.AssemblyLinearVelocity = Vector3.new(hVel.X, math.clamp(yVel, -80, 80), hVel.Z)
-            hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            --// v1.8: Velocity interpolation untuk running (smooth transitions)
+            local currentVel = hrp.AssemblyLinearVelocity
+            local targetVel = Vector3.new(hVel.X, math.clamp(yVel, -80, 80), hVel.Z)
+            local smoothVel = currentVel:Lerp(targetVel, 0.7)
+            
+            hrp.AssemblyLinearVelocity = smoothVel
+            hrp.AssemblyAngularVelocity = Vector3.new(0, angularVel, 0)  -- v1.8: smooth rotation
 
             if hVel.Magnitude > 0.45 then
                 hum:ChangeState(Enum.HumanoidStateType.Running)
@@ -4491,8 +4519,25 @@ function playFrames(frames, checkpointName)
         local startIndex, startTime = getMIKSUSmartStartForOnium(frames)
         local startFrame = frames[startIndex] or frames[1]
         equipFrameTool(startFrame, char, hum)
-        applyFrameInstant(startFrame)
-        task.wait(0.02)
+        
+        --// v1.8: Soft-start playback - blend from current position (anti snap)
+        local currentPos = hrp.Position
+        local targetCF = getFrameCFrame(startFrame)
+        local distance = (targetCF.Position - currentPos).Magnitude
+        
+        if distance > 5 and distance < 50 then
+            -- Mid-range: smooth blend over 0.15s
+            for i = 1, 5 do
+                local alpha = i / 5
+                local blendCF = CFrame.new(currentPos:Lerp(targetCF.Position, alpha)) * CFrame.Angles(0, select(2, targetCF:ToOrientation()), 0)
+                pcall(function() hrp.CFrame = blendCF end)
+                task.wait(0.03)
+            end
+        else
+            -- Close or very far: instant apply
+            applyFrameInstant(startFrame)
+            task.wait(0.02)
+        end
 
         local firstT = tonumber(frames[1].times) or tonumber(frames[1].t) or 0
         local lastT = tonumber(frames[#frames].times) or tonumber(frames[#frames].t) or firstT
@@ -4537,6 +4582,7 @@ function playFrames(frames, checkpointName)
             end
 
             local alpha = math.clamp((absoluteTime - ta) / dt, 0, 1)
+            local eased = easeCubic(alpha)  -- v1.8: Use cubic easing instead of linear
 
             if b.seam == true or a.cutNext == true then
                 equipFrameTool(b, char, hum)
@@ -4544,7 +4590,7 @@ function playFrames(frames, checkpointName)
             else
                 equipFrameTool(b, char, hum)
                 applyFrameMeta(b, hum)
-                applyFrameMIKSUStyle(a, b, alpha, hum, hrp, velocityMultiplier, playbackSpeed)
+                applyFrameMIKSUStyle(a, b, eased, hum, hrp, velocityMultiplier, playbackSpeed)  -- v1.8: use eased instead of alpha
             end
 
             RunService.Heartbeat:Wait()
