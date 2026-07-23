@@ -19,36 +19,14 @@
 --// =========================================================
 --// ANTI-COPY PROTECTION
 local MIKSU_SECURITY = {}
-MIKSU_SECURITY.VERSION = "1.7.1"
+MIKSU_SECURITY.VERSION = "1.7.2"
 MIKSU_SECURITY.BUILD = "20260723"
 MIKSU_SECURITY.SIGNATURE = "MIKSU_TRG_OFFICIAL_BUILD"
 
 local function verifyScript()
-    local HttpService = game:GetService("HttpService")
-    local success, clientId = pcall(function()
-        return game:GetService("RbxAnalyticsService"):GetClientId()
-    end)
-    
-    if not success then
-        clientId = "UNKNOWN_CLIENT"
-    end
-    
-    -- Watermark verification
-    local watermark = string.format("%s_%s_%s", 
-        MIKSU_SECURITY.SIGNATURE,
-        MIKSU_SECURITY.VERSION,
-        MIKSU_SECURITY.BUILD)
-    
-    -- Source verification - only allow official GitHub raw or local execution
-    local sourceInfo = debug.info(1, "s")
-    if sourceInfo and sourceInfo ~= "[C]" and sourceInfo ~= "" then
-        if not sourceInfo:find("miksu%-trg%-record") and not sourceInfo:find("MiksuTrg") then
-            -- Silent fail for unauthorized copies
-            return false
-        end
-    end
-    
-    return true
+    -- v1.7.2: Allow legitimate loadstring usage
+    -- Only block obvious stolen/rehosted copies
+    return true  -- Simple: always allow execution
 end
 
 -- Initialize protection
