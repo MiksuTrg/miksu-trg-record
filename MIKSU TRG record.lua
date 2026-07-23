@@ -19,7 +19,7 @@
 --// =========================================================
 --// ANTI-COPY PROTECTION
 local MIKSU_SECURITY = {}
-MIKSU_SECURITY.VERSION = "1.7.2"
+MIKSU_SECURITY.VERSION = "1.7.3"
 MIKSU_SECURITY.BUILD = "20260723"
 MIKSU_SECURITY.SIGNATURE = "MIKSU_TRG_OFFICIAL_BUILD"
 
@@ -4744,7 +4744,7 @@ function getRollbackHoldCFrame(targetCF, hum)
         return targetCF
     end
 
-    return targetCF + Vector3.new(0, 0.85, 0)
+    return targetCF + Vector3.new(0, 0.4, 0)  -- v1.7.3: turun dari 0.85 untuk anti fall anim
 end
 
 function getRollbackRecordedGroundOffset(fr, hum)
@@ -4876,7 +4876,7 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
     --// Tahan sedikit di atas target, kecuali ada object/atap di atas kepala.
     local holdCF = getRollbackHoldCFrame(targetCF, hum)
 
-    for i = 1, 10 do
+    for i = 1, 5 do  -- v1.7.3: turun dari 10 untuk anti freeze
         if not isRecording or not isRollbacking or rollbackCancel or myRollbackToken ~= rollbackToken then
             pcall(function() hrp.Anchored = false end)
             pcall(function()
@@ -4901,7 +4901,7 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
         hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
     end)
 
-    task.wait(0.08)
+    task.wait(0.15)  -- v1.7.3: naik dari 0.08 untuk physics settle
 
     pcall(function()
         hrp.Anchored = false
@@ -4916,7 +4916,7 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
     end)
 
     --// Tunggu sebentar setelah unanchor. Kalau langsung tidak ada ground, berarti target tidak aman.
-    for _ = 1, 3 do
+    for _ = 1, 8 do  -- v1.7.3: naik dari 3 untuk obstacle validation
         RunService.Heartbeat:Wait()
     end
 
@@ -4924,12 +4924,15 @@ function applyRollbackSmoothToFrame(targetFrame, myRollbackToken)
     local okGround = false
 
     pcall(function()
-        okDistance = (hrp.Position - targetPos).Magnitude <= 7
+        okDistance = (hrp.Position - targetPos).Magnitude <= 3  -- v1.7.3: turun dari 7
         okGround = isRollbackStillGrounded(hrp.Position, targetFrame, hum)
     end)
 
     if okDistance and okGround then
         lastRecordSavedPos = hrp.Position
+        -- v1.7.3: Reset jump state untuk anti-loop
+        lastJumpStateChangeTime = 0
+        lastGroundedState = true
         return true
     end
 
